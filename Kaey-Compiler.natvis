@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+  <Type Name="Kaey::ArrayView&lt;*&gt;">
+    <DisplayString>{{Size={len}}}</DisplayString>
+    <Expand>
+      <ArrayItems>
+        <Size>len</Size>
+        <ValuePointer>ptr</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+  
+  <!-- Lexer -->
+  <Type Name="Kaey::Lexer::BaseToken">
+  	<Expand>
+  		<Item Name="Name">name</Item>
+  		<Item Name="Text">text</Item>
+  		<Item Name="Line">line</Item>
+  	</Expand>
+  </Type>
+
+  <!-- Llvm -->
+  <Type Name="Kaey::Llvm::BaseType">
+    <DisplayString>{{Name={name}}}</DisplayString>
+    <Expand>
+      <Item Name="ModuleContext">mod</Item>
+      <Item Name="Name">name</Item>
+      <Item Name="Functions">functions</Item>
+      <Item Name="LlvmType">type</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="Kaey::Llvm::IntegerType">
+    <DisplayString>{{Name={name}}}</DisplayString>
+    <Expand>
+      <Item Name="ModuleContext">mod</Item>
+      <Item Name="Name">name</Item>
+      <Item Name="Functions">functions</Item>
+      <Item Name="Bits">bits</Item>
+      <Item Name="IsSigned">isSigned</Item>
+      <Item Name="Constants">constantMap</Item>
+      <Item Name="LlvmType">type</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="Kaey::Llvm::FloatingType">
+    <DisplayString>{{Name={name}}}</DisplayString>
+    <Expand>
+      <Item Name="ModuleContext">mod</Item>
+      <Item Name="Name">name</Item>
+      <Item Name="Functions">functions</Item>
+      <Item Name="Bits">bits</Item>
+      <Item Name="Constants">constantMap</Item>
+      <Item Name="LlvmType">type</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="Kaey::Llvm::PointerType">
+    <DisplayString>{{Name={name}}}</DisplayString>
+    <Expand>
+      <Item Name="ModuleContext">mod</Item>
+      <Item Name="Name">name</Item>
+      <Item Name="Functions">functions</Item>
+      <Item Name="UnderlyingType">underlyingType</Item>
+      <Item Name="LlvmType">type</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="Kaey::Llvm::ReferenceType">
+    <DisplayString>{{Name={name}}}</DisplayString>
+    <Expand>
+      <Item Name="ModuleContext">mod</Item>
+      <Item Name="Name">name</Item>
+      <Item Name="Functions">functions</Item>
+      <Item Name="UnderlyingType">underlyingType</Item>
+      <Item Name="LlvmType">type</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="Kaey::Llvm::ClassType">
+    <DisplayString>{{Name={name}, Fields={fields}}}</DisplayString>
+    <Expand>
+      <Item Name="ModuleContext">mod</Item>
+      <Item Name="Name">name</Item>
+      <Item Name="Fields">fields</Item>
+      <Item Name="Functions">functions</Item>
+      <Item Name="LlvmType">type</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="Kaey::Llvm::Function">
+    <DisplayString>{{Name={name}}}</DisplayString>
+    <Expand>
+      <Item Name="ModuleContext">mod</Item>
+      <Item Name="Name">name</Item>
+      <Item Name="Overloads">overloads</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="Kaey::Llvm::FunctionOverload">
+    <DisplayString>{{Name={owner->name}, Type={functionType->name}}}</DisplayString>
+    <Expand>
+      <Item Name="ModuleContext">mod</Item>
+      <Item Name="Name">owner->name</Item>
+      <Item Name="Type">functionType</Item>
+    </Expand>
+  </Type>
+  
+  <!-- Ast -->
+  <Type Name="Kaey::Ast::BaseType">
+    <DisplayString>{{Name={v->name}}}</DisplayString>
+    <Expand>
+      <Item Name="Name">v->name</Item>
+      <Item Name="Fields">v->fields</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="Kaey::Ast::ReferenceType">
+    <DisplayString>{{Name={name}}}</DisplayString>
+    <Expand>
+      <Item Name="Name">name</Item>
+      <Item Name="UnderlyingType">underlyingType</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="Kaey::Ast::PointerType">
+    <DisplayString>{{Name={name}}}</DisplayString>
+    <Expand>
+      <Item Name="Name">name</Item>
+      <Item Name="UnderlyingType">underlyingType</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="Kaey::Ast::ArrayType">
+    <DisplayString>{{Name={name}}}</DisplayString>
+    <Expand>
+      <Item Name="Name">name</Item>
+      <Item Name="UnderlyingType">underlyingType</Item>
+      <Item Name="Length">length</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="Kaey::Ast::VariableDeclaration">
+    <DisplayString>{{ Name={variable->name}, Type={type} }}</DisplayString>
+    <Expand>
+      <Item Name="Reference">variable</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="Kaey::Ast::VariableReference">
+  	<DisplayString>{{ Name={name}, Type={type} }}</DisplayString>
+  	<Expand>
+		<Item Name="Name">name</Item>
+		<Item Name="Type">type</Item>
+	</Expand>
+  </Type>
+
+  <Type Name="Kaey::Ast::ParameterDeclaration">
+    <DisplayString>{{ Name={variable->name}, Type={type} }}</DisplayString>
+    <Expand>
+      <Item Name="Reference">variable</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="Kaey::Ast::FunctionDeclaration">
+    <DisplayString>{{ Name={masterFunction->name}, Type={reference->type} }}</DisplayString>
+    <Expand>
+      <Item Name="Reference">reference</Item>
+    </Expand>
+  </Type>
+
+</AutoVisualizer>
