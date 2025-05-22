@@ -1,8 +1,9 @@
 # Kaey-Compiler
 
-Esse projeto tem como objetivo a criação de um compilador de uma nova linguagem de programação, usando o LLVM.
+Esse projeto tem como objetivo a criação de um compilador de uma nova linguagem de programação, usando o LLVM como back-end.
 
 Exemplo de input de texto ao compilador:
+
 ```
 //Esta é minha linguagem de programação.
 /*
@@ -32,7 +33,13 @@ Exemplo de input de texto ao compilador:
 }
 ```
 
-Output em texto do código gerado pelo LLVM:
+Árvore gerada pelo parser através do front-end, usando a integração com o Graphviz:
+
+![tree](https://github.com/user-attachments/assets/3a38af9a-926e-4e1f-85c5-d67e64a5801b)
+
+Usando a AST (Abstract Syntax Tree) o compilador traduz e avalia todas as chamadas e referências feitas no código fonte, traduzindo essa árvore para o byte code do LLVM.
+A seguir o output em texto do código já optimizado que é gerado pelo LLVM:
+
 ```
 ; ModuleID = 'Source'
 source_filename = "Source"
