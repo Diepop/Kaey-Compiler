@@ -33,7 +33,7 @@ Exemplo de input de texto ao compilador:
 }
 ```
 
-Árvore gerada pelo parser através do front-end, usando a integração com o Graphviz:
+Árvore gerada pelo parser através do front-end, a imagem foi gerada usando a integração com o Graphviz:
 
 ![tree](https://github.com/user-attachments/assets/3a38af9a-926e-4e1f-85c5-d67e64a5801b)
 
