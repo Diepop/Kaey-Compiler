@@ -63,7 +63,7 @@ namespace Kaey::Llvm
         {
             constructor = AddFunction(CONSTRUCTOR);
             if (emptyFields(Fields(), CONSTRUCTOR, 0))
-                constructor->AddInstrinsicOverload(voidTy, { refTy, refTy }, false, InstrinsicFunction::Empty);
+                constructor->AddIntrinsicOverload(voidTy, { refTy, refTy }, false, IntrinsicFunction::Empty);
             else AddFunctionDeclaration(constructor, { { { .Type = refTy } } }, [&](auto fn)
             {
                 auto this_ = fn->Parameter(0);
@@ -88,7 +88,7 @@ namespace Kaey::Llvm
         if (!copyConstructor)
         {
             if (emptyFields(Fields(), CONSTRUCTOR, 1))
-                constructor->AddInstrinsicOverload(voidTy, { refTy, refTy }, false, InstrinsicFunction::Empty);
+                constructor->AddIntrinsicOverload(voidTy, { refTy, refTy }, false, IntrinsicFunction::Empty);
             else AddFunctionDeclaration(constructor, { { { .Type = refTy }, { .Type = refTy } } }, [&](auto fn)
             {
                 auto [lhs, rhs] = fn->UnpackParameters<2>();
@@ -101,7 +101,7 @@ namespace Kaey::Llvm
         if (!copyAssign)
         {
             if (emptyFields(Fields(), ASSIGN_OPERATOR, 1))
-                assign->AddInstrinsicOverload(voidTy, { refTy, refTy }, false, InstrinsicFunction::Empty);
+                assign->AddIntrinsicOverload(voidTy, { refTy, refTy }, false, IntrinsicFunction::Empty);
             else AddFunctionDeclaration(assign, { { { .Type = refTy }, { .Type = refTy } }, refTy }, [&](auto fn)
             {
                 auto [lhs, rhs] = fn->UnpackParameters<2>();
@@ -122,7 +122,7 @@ namespace Kaey::Llvm
         if (!destructor)
         {
             destructor = emptyFields(Fields(), DESTRUCTOR, 0) ?
-                (IFunctionOverload*)destructorFn->AddInstrinsicOverload(voidTy, { refTy }, false, InstrinsicFunction::Empty) :
+                (IFunctionOverload*)destructorFn->AddIntrinsicOverload(voidTy, { refTy }, false, IntrinsicFunction::Empty) :
                 AddFunctionDeclaration(destructorFn, { { { .Type = refTy } } }, [&](auto fn)
                 {
                     for (auto fd : Fields() | vs::reverse)
@@ -178,7 +178,7 @@ namespace Kaey::Llvm
         if (!notEqual)
         {
             if (this->IsOr<PointerType>())
-                notEqual = notEqualOp->AddInstrinsicOverload(boolTy, { this, this }, false,
+                notEqual = notEqualOp->AddIntrinsicOverload(boolTy, { this, this }, false,
                     [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression* result) -> Expression*
                     {
                         auto builder = caller->Builder();
@@ -204,7 +204,7 @@ namespace Kaey::Llvm
         if (!amper)
         {
             amper = AddFunction(AMPERSAND_OPERATOR);
-            assign->AddInstrinsicOverload(PointerTo(), { refTy }, false,
+            assign->AddIntrinsicOverload(PointerTo(), { refTy }, false,
                 [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
                 {
                     return caller->CreateAddressOf(args[0]);
@@ -280,7 +280,7 @@ namespace Kaey::Llvm
 
     int64_t Type::Alignment() const
     {
-        return (int64_t)Module()->DataLayout()->getABITypeAlignment(Instance());
+        return (int64_t)Module()->DataLayout()->getABITypeAlign(Instance()).value();
     }
 
     int64_t Type::Size() const

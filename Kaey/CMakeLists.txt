@@ -1,6 +1,4 @@
-cmake_minimum_required (VERSION 3.0)
-
-set(KaeyDir "${CMAKE_SOURCE_DIR}/Kaey/")
+set(KaeyDir ${CMAKE_CURRENT_SOURCE_DIR}/)
 
 include_directories("${CMAKE_SOURCE_DIR}/Kaey")
 
@@ -22,4 +20,4 @@ add_library(Kaey STATIC ${KaeySources})
 
 target_link_libraries(Kaey PUBLIC KaeyLexer KaeyParser KaeyLlvm KaeyAst)
 
-target_precompile_headers(Kaey REUSE_FROM KaeyLexer)
+target_precompile_headers(Kaey REUSE_FROM PCH)

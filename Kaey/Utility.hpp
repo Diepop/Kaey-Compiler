@@ -19,17 +19,24 @@ namespace Kaey
     template<class T, template<class...>class Specialization>
     constexpr auto is_specialization = is_specialization_s<T, Specialization>::value;
 
-    constexpr auto operator""_f(const char* f, size_t l) { return[=]<class... Args>(Args&&... args) { return vformat(f, std::make_format_args(std::forward<Args>(args)...)); }; }
+    constexpr auto operator""_f(const char* f, size_t) { return [=](auto&&... args) { return std::vformat(f, std::make_format_args(args...)); }; }
 
-    void print(auto&& fmt, auto&&... args)
+    template<class... Args>
+    void print(std::format_string<Args...> fmt, Args&&... args)
     {
-        std::vformat_to(std::ostream_iterator<char>(std::cout), fmt, std::make_format_args(std::forward<decltype(args)>(args)...));
+        std::print(std::cout, fmt, std::forward<Args>(args)...);
     }
 
-    void println(auto&& fmt, auto&&... args)
+    template<class... Args>
+    void println(std::format_string<Args...> fmt, Args&&... args)
     {
-        print(std::forward<decltype(fmt)>(fmt), std::forward<decltype(args)>(args)...);
-        putchar('\n');
+        print(fmt, std::forward<Args>(args)...);
+        std::putchar('\n');
+    }
+
+    inline void println()
+    {
+        std::putchar('\n');
     }
 
     template<rn::range Range, class Delim>
@@ -578,14 +585,12 @@ namespace std
         formatter<element_type> form;
         formatter<Delim> dForm;
 
-        template<class Context>
-        auto parse(Context& ctx)
+        constexpr auto parse(auto& ctx)
         {
             return form.parse(ctx);
         }
 
-        template<class Context>
-        auto format(Kaey::Join<Range, Delim> p, Context& ctx)
+        auto format(const Kaey::Join<Range, Delim>& p, auto& ctx) const
         {
             auto it = ranges::begin(p.range);
             auto end = ranges::end(p.range);

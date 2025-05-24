@@ -80,7 +80,7 @@ namespace Kaey::Llvm
             {
                 auto ie = statement->InitializeExpression() ? Dispatch(statement->InitializeExpression(), this) : nullptr;
                 auto vars = statement->Variables();
-                for (size_t i = 0; i < vars.size(); ++i)
+                for (auto i : irange((int)vars.size()))
                 {
                     auto n = vars[i]->Name();
                     auto ty = Dispatch(statement->Type()->ElementTypes()[i], typeVisitor);
@@ -410,7 +410,7 @@ namespace Kaey::Llvm
 
         };
 
-        struct ModuleVisitor final : Ast::Statement::Visitor<void>, TypeVisitor
+        struct ModuleVisitor final : Ast::Statement::Visitor<void>, TypeVisitor, Ast::Expression::Visitor<Constant*>
         {
             using TypeVisitor::Visit;
 
@@ -431,7 +431,9 @@ namespace Kaey::Llvm
 
                 static auto parse_params = vs::transform([&](Ast::ParameterDeclaration* param) -> ArgumentDeclaration
                 {
-                    return { (string)param->Name(), Dispatch(param->Type(), this) };
+                    auto ie = param->InitializingExpression();
+                    assert(ie == nullptr || ie->IsConstant());
+                    return { (string)param->Name(), Dispatch(param->Type(), this), Dispatch(ie, this) };
                 });
 
                 for (auto& [ct, type] : classMap)
@@ -488,6 +490,12 @@ namespace Kaey::Llvm
 
                 for (auto& [ast, fn] : fnMap)
                     fnVisitor(ast, fn, &typeVisitor);
+            }
+
+            Constant* Visit(Ast::IntegerConstant* expr)
+            {
+                auto type = Dispatch(expr->TypeOfInteger(), this)->As<IntegerType>();
+                return type->CreateConstantUnsigned(expr->Value());
             }
 
         private:

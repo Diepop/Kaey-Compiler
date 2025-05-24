@@ -1,6 +1,4 @@
-cmake_minimum_required (VERSION 3.0)
-
-set(LlvmDir "${CMAKE_SOURCE_DIR}/Kaey/Llvm/")
+set(LlvmDir ${CMAKE_CURRENT_SOURCE_DIR}/)
 
 set(LlvmSources 
     "IObject.hpp"
@@ -16,15 +14,9 @@ set(LlvmSources
 
 list(TRANSFORM LlvmSources PREPEND ${LlvmDir})
 
-find_package(LLVM CONFIG REQUIRED)
-
 add_library(KaeyLlvm STATIC ${LlvmSources})
 
-target_link_libraries(KaeyLlvm PUBLIC
-    LTO LLVMMC LLVMLTO LLVMMCA
-    LLVMOrcJIT LLVMX86AsmParser LLVMX86CodeGen
-    LLVMX86Desc LLVMX86Disassembler LLVMX86Info
-)
+target_link_libraries(KaeyLlvm PUBLIC PCH)
 
 target_include_directories(KaeyLlvm PRIVATE ${LlvmDir})
-target_precompile_headers(KaeyLlvm REUSE_FROM KaeyLexer)
+target_precompile_headers(KaeyLlvm REUSE_FROM PCH)

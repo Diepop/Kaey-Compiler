@@ -68,7 +68,7 @@ int main(int argc, char* argv[])
         }
 
         puts("Compilation Success!\nExecuting target main.\n\n");
-        return ((int(*)(int, char**))symbol->getAddress())(argc, argv);
+        return symbol->getAddress().toPtr<int(*)(int, char**)>()(argc, argv);
     }
     catch (std::ios::failure& e)
     {

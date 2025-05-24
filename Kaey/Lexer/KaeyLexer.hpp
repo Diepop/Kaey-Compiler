@@ -37,7 +37,7 @@ namespace Kaey::Lexer
         char Peek(ptrdiff_t delta = 0) const
         {
             assert(delta >= 0);
-            return position + delta < Count() ? CurrentIterator()[delta] : '\0';
+            return position + delta < (ptrdiff_t)Count() ? CurrentIterator()[delta] : '\0';
         }
 
         char Seek(ptrdiff_t delta, SeekOrigin type = SeekOrigin::Current)
@@ -71,7 +71,7 @@ namespace Kaey::Lexer
             DebugUpdate();
         }
 
-        explicit operator bool() const { return Count() > position; }
+        explicit operator bool() const { return (ptrdiff_t)Count() > position; }
 
         size_t Count() const { return value.length(); }
 

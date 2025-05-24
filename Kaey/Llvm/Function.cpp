@@ -61,7 +61,8 @@ namespace Kaey::Llvm
         auto returnType = FunctionType()->ReturnType();
         auto parameterTypes = FunctionType()->ParameterTypes();
         vector<llvm::Value*> arr;
-        for (size_t i = 0; i < parameterTypes.size(); i++)
+        auto min = std::min(parameterTypes.size(), args.size());
+        for (size_t i = 0; i < min; i++)
             arr.emplace_back(parameterTypes[i]->PassArgument(caller, args[i])->Value());
         if (Type()->isVarArg())
         {
@@ -74,6 +75,16 @@ namespace Kaey::Llvm
                 arr.emplace_back(t->PassArgument(caller, arg)->Value());
             }
         }
+        else
+        {
+            auto max = std::max(parameterTypes.size(), args.size());
+            for (size_t i = min; i < max; i++)
+            {
+                auto t = parameterTypes[i]->RemoveReference();
+                arr.emplace_back(t->PassArgument(caller, parameterDeclarations[i].Initializer)->Value());
+            }
+        }
+
         if (returnType->IsStructReturn())
             arr.emplace(arr.begin(), resultInst->Value());
         auto v = caller->Builder()->CreateCall(function, arr);
@@ -127,7 +138,9 @@ namespace Kaey::Llvm
             assert(whileStack.empty() && "Forgot to call 'EndWhile'!");
             assert(ifStack.empty() && "Forgot to call 'EndIf'!");
             assert(switchStack.empty() && "Forgot to call 'EndSwitch'!");
+#ifdef _DEBUG
             ended = true;
+#endif
         }
     }
 
@@ -587,41 +600,44 @@ namespace Kaey::Llvm
         scopeStack.back().Variables.clear();
     }
 
-    const InstrinsicFunction::Callback InstrinsicFunction::Empty = [](FunctionOverload*, ArrayView<Expression*>, Expression*) { return nullptr; };
+    const IntrinsicFunction::Callback IntrinsicFunction::Empty = [](FunctionOverload*, ArrayView<Expression*>, Expression*) { return nullptr; };
 
-    InstrinsicFunction::InstrinsicFunction(ModuleContext* mod, Function* owner, FunctionPointerType* type, const Callback& fn) :
+    IntrinsicFunction::IntrinsicFunction(ModuleContext* mod, Function* owner, FunctionPointerType* type, const Callback& fn) :
         owner(owner),
         mod(mod),
         type(type),
         fn(fn),
+        paramenterDeclarations(type->ParameterTypes() | vs::transform([](Llvm::Type* ty) { return ArgumentDeclaration({}, ty, nullptr); }) | to_vector),
         isEmpty(&fn == &Empty)
     {
         assert(mod == owner->Module());
     }
 
-    Llvm::Type* InstrinsicFunction::ReturnType() const
+    Llvm::Type* IntrinsicFunction::ReturnType() const
     {
         return type->ReturnType();
     }
 
-    ArrayView<Llvm::Type*> InstrinsicFunction::ParameterTypes() const
+    ArrayView<Llvm::Type*> IntrinsicFunction::ParameterTypes() const
     {
         return type->ParameterTypes();
     }
 
-    bool InstrinsicFunction::IsVariadic() const
+    bool IntrinsicFunction::IsVariadic() const
     {
         return type->IsVariadic();
     }
 
-    Expression* InstrinsicFunction::Call(FunctionOverload* function, ArrayView<Expression*> args, Expression* resultInst)
+    Expression* IntrinsicFunction::Call(FunctionOverload* function, ArrayView<Expression*> args, Expression* resultInst)
     {
         return fn(function, args, resultInst);
     }
 
-    DeletedFunctionOverload::DeletedFunctionOverload(ModuleContext* mod, Function* owner, FunctionPointerType* type): mod(mod),
-                                                                                                                      owner(owner),
-                                                                                                                      type(type)
+    DeletedFunctionOverload::DeletedFunctionOverload(ModuleContext* mod, Function* owner, FunctionPointerType* type) :
+        mod(mod),
+        owner(owner),
+        type(type),
+        paramenterDeclarations(type->ParameterTypes() | vs::transform([](Llvm::Type* ty) { return ArgumentDeclaration({}, ty, nullptr); }) | to_vector)
     {
         assert(mod == owner->Module() && "Modules from argument and owner differ!");
     }
@@ -653,15 +669,15 @@ namespace Kaey::Llvm
         return result;
     }
 
-    InstrinsicFunction* Function::AddInstrinsicOverload(Llvm::Type* returnType, vector<Llvm::Type*> paramTypes, bool isVariadic, const InstrinsicFunction::Callback& fn)
+    IntrinsicFunction* Function::AddIntrinsicOverload(Llvm::Type* returnType, vector<Llvm::Type*> paramTypes, bool isVariadic, const IntrinsicFunction::Callback& fn)
     {
         auto type = mod->GetFunctionPointerType(returnType, move(paramTypes), isVariadic);
-        return AddInstrinsicOverload(type, fn);
+        return AddIntrinsicOverload(type, fn);
     }
 
-    InstrinsicFunction* Function::AddInstrinsicOverload(FunctionPointerType* type, const InstrinsicFunction::Callback& fn)
+    IntrinsicFunction* Function::AddIntrinsicOverload(FunctionPointerType* type, const IntrinsicFunction::Callback& fn)
     {
-        auto result = mod->CreateObject<InstrinsicFunction>(this, type, fn);
+        auto result = mod->CreateObject<IntrinsicFunction>(this, type, fn);
         AddOverload(result);
         return result;
     }
@@ -705,23 +721,50 @@ namespace Kaey::Llvm
         return it != overloads.end() ? *it : nullptr;
     }
 
-    vector<IFunctionOverload*> Function::FindCallable(ArrayView<Llvm::Type*> types) const
+    vector<IFunctionOverload*> Function::FindCallable(ArrayView<Llvm::Type*> argTypes) const
     {
+        for (auto overload : overloads)
+        {
+            auto paramTypes = overload->ParameterTypes();
+            if (rn::equal(paramTypes, argTypes, [](Llvm::Type* a, Llvm::Type* b) { return a == b || a->RemoveReference() == b->RemoveReference(); }))
+                return { overload };
+        }
         vector<IFunctionOverload*> res;
         for (auto overload : overloads)
         {
-            auto pTypes = overload->ParameterTypes();
-            if (pTypes.size() > types.size() ||
-                pTypes.size() < types.size() && !overload->IsVariadic())
+            auto ty = overload->FunctionType();
+            auto paramTypes = overload->ParameterTypes();
+
+            if (argTypes.size() > paramTypes.size() && !ty->IsVariadic())
                 continue;
-            if (std::equal(pTypes.begin(), pTypes.end(), types.begin(), [](auto a, auto b) { return a == b || a->RemoveReference() == b->RemoveReference(); }))
-                return { overload };
-            if (std::equal(pTypes.begin(), pTypes.end(), types.begin(), [](auto a, auto b)
+            auto params = overload->ParameterDeclarations();
+            if (argTypes.size() < paramTypes.size() && rn::any_of(params | vs::drop(argTypes.size()), [](const ArgumentDeclaration& pd)
                 {
+                    return pd.Initializer == nullptr;
+                }))
+                continue;
+            auto n = std::min(paramTypes.size(), argTypes.size());
+            if (!rn::equal(paramTypes | vs::take(n), argTypes | vs::take(n), [](Llvm::Type* a, Llvm::Type* b)
+                {
+                    if (a == b || a->RemoveReference() == b->RemoveReference())
+                        return true;
                     auto cc = a->FindFunction(CONSTRUCTOR);
                     return cc && (cc->FindOverload({ a->ReferenceTo(), b }) || cc->FindOverload({ a->ReferenceTo(), b->RemoveReference() }));
                 }))
-                res.emplace_back(overload);
+                continue;
+            res.emplace_back(overload);
+
+            //if (pTypes.size() > argTypes.size() ||
+            //    pTypes.size() < argTypes.size() && !overload->IsVariadic())
+            //    continue;
+            //if (std::equal(pTypes.begin(), pTypes.end(), argTypes.begin(), [](auto a, auto b) { return a == b || a->RemoveReference() == b->RemoveReference(); }))
+            //    return { overload };
+            //if (std::equal(pTypes.begin(), pTypes.end(), argTypes.begin(), [](auto a, auto b)
+            //    {
+            //        auto cc = a->FindFunction(CONSTRUCTOR);
+            //        return cc && (cc->FindOverload({ a->ReferenceTo(), b }) || cc->FindOverload({ a->ReferenceTo(), b->RemoveReference() }));
+            //    }))
+            //    res.emplace_back(overload);
         }
         return res;
     }

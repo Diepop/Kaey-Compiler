@@ -21,7 +21,8 @@ namespace Kaey::Llvm
     struct ArgumentDeclaration
     {
         string Name;
-        Llvm::Type* Type;
+        Type* Type = nullptr;
+        Constant* Initializer = nullptr;
     };
 
     struct IFunctionOverload : IObject
@@ -29,6 +30,7 @@ namespace Kaey::Llvm
         virtual Function* Owner() const = 0;
         virtual FunctionPointerType* FunctionType() const = 0;
         virtual Llvm::Type* ReturnType() const = 0;
+        virtual ArrayView<ArgumentDeclaration> ParameterDeclarations() const = 0;
         virtual ArrayView<Llvm::Type*> ParameterTypes() const = 0;
         virtual bool IsVariadic() const = 0;
         virtual bool IsImplicit() const { return true; }
@@ -106,7 +108,7 @@ namespace Kaey::Llvm
         bool IsVariadic() const override;
         llvm::FunctionType* Type() const { return type; }
         llvm::Function* Value() const { return function; }
-        ArrayView<ArgumentDeclaration> ParameterDeclarations() const { return parameterDeclarations; }
+        ArrayView<ArgumentDeclaration> ParameterDeclarations() const override { return parameterDeclarations; }
         ArrayView<ArgumentReference*> Parameters() const { return parameters; }
         ArgumentReference* Parameter(int i) const { return parameters[i]; }
 
@@ -194,6 +196,8 @@ namespace Kaey::Llvm
 
         Expression* GetField(Expression* owner, int index);
 
+        Expression* GetField(Expression* owner, auto index) { return GetField(owner, (int)index); }
+
         /// <summary>
         /// Cast a pointer or reference to another type, equivalent to reinterpret_cast.
         /// </summary>
@@ -247,15 +251,16 @@ namespace Kaey::Llvm
         }
     };
 
-    struct InstrinsicFunction final : IObject::With<InstrinsicFunction, IFunctionOverload>
+    struct IntrinsicFunction final : IObject::With<IntrinsicFunction, IFunctionOverload>
     {
         using Callback = std::function<Expression*(FunctionOverload*, ArrayView<Expression*>, Expression*)>;
         static const Callback Empty;
-        InstrinsicFunction(ModuleContext* mod, Function* owner, FunctionPointerType* type, const Callback& fn);
+        IntrinsicFunction(ModuleContext* mod, Function* owner, FunctionPointerType* type, const Callback& fn);
         Function* Owner() const override { return owner; }
         ModuleContext* Module() const override { return mod; }
         FunctionPointerType* FunctionType() const override { return type; }
         Llvm::Type* ReturnType() const override;
+        ArrayView<ArgumentDeclaration> ParameterDeclarations() const override { return paramenterDeclarations; }
         ArrayView<Llvm::Type*> ParameterTypes() const override;
         bool IsVariadic() const override;
         bool IsEmpty() const override { return isEmpty; }
@@ -267,6 +272,7 @@ namespace Kaey::Llvm
         ModuleContext* mod;
         mutable FunctionPointerType* type;
         Callback fn;
+        vector<ArgumentDeclaration> paramenterDeclarations;
         bool isEmpty;
     };
 
@@ -277,6 +283,7 @@ namespace Kaey::Llvm
         ModuleContext* Module() const override { return mod; }
         FunctionPointerType* FunctionType() const override { return type; }
         Llvm::Type* ReturnType() const override { return type->ReturnType(); }
+        ArrayView<ArgumentDeclaration> ParameterDeclarations() const override { return paramenterDeclarations; }
         ArrayView<Llvm::Type*> ParameterTypes() const override { return type->ParameterTypes(); }
         bool IsVariadic() const override { return type->IsVariadic(); }
         Expression* Call(FunctionOverload* function, ArrayView<Expression*> args, Expression* resultInst) override;
@@ -284,6 +291,7 @@ namespace Kaey::Llvm
         ModuleContext* mod;
         Function* owner;
         FunctionPointerType* type;
+        vector<ArgumentDeclaration> paramenterDeclarations;
     };
 
     struct Function final : IObject::With<Function>
@@ -293,8 +301,8 @@ namespace Kaey::Llvm
         string_view Name() const { return name; }
         void AddOverload(IFunctionOverload* overload);
         FunctionOverload* AddOverload(Llvm::Type* returnType, vector<ArgumentDeclaration> params, bool isVariadic = false, bool noMangling = false);
-        InstrinsicFunction* AddInstrinsicOverload(Llvm::Type* returnType, vector<Llvm::Type*> paramTypes, bool isVariadic = false, const InstrinsicFunction::Callback& fn = InstrinsicFunction::Empty);
-        InstrinsicFunction* AddInstrinsicOverload(FunctionPointerType* type, const InstrinsicFunction::Callback& fn = InstrinsicFunction::Empty);
+        IntrinsicFunction* AddIntrinsicOverload(Llvm::Type* returnType, vector<Llvm::Type*> paramTypes, bool isVariadic = false, const IntrinsicFunction::Callback& fn = IntrinsicFunction::Empty);
+        IntrinsicFunction* AddIntrinsicOverload(FunctionPointerType* type, const IntrinsicFunction::Callback& fn = IntrinsicFunction::Empty);
 
         DeletedFunctionOverload* AddDeletedOverload(Llvm::Type* returnType, vector<Llvm::Type*> paramTypes, bool isVariadic = false);
         DeletedFunctionOverload* AddDeletedOverload(FunctionPointerType* type);
@@ -305,7 +313,7 @@ namespace Kaey::Llvm
 
         IFunctionOverload* FindOverload(ArrayView<Llvm::Type*> types) const;
 
-        vector<IFunctionOverload*> FindCallable(ArrayView<Llvm::Type*> types) const;
+        vector<IFunctionOverload*> FindCallable(ArrayView<Llvm::Type*> argTypes) const;
 
         IFunctionOverload* FindCallableSingle(ArrayView<Llvm::Type*> types) const;
 

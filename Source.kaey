@@ -4,7 +4,7 @@
 //#[ExternC] [] srand(seed: u32) : void;
 //#[ExternC] [] rand() : i32;
 
-#[ExternC] [] sqrtf(v: f32) : f32;
+/*#[ExternC] [] sqrtf(v: f32) : f32;
 #[ExternC] [] puts(str: char*) : i32;
 #[ExternC] [] printf(fmt: char*, ...) : i32;
 #[ExternC] [] scanf(fmt: char*, ...) : i32;
@@ -31,7 +31,11 @@ val Right: Vector2 = Vector2(1, 0);
     return v;
 }
 
-[] next2Int() : (i32, i32) => (nextInt(), nextInt());
+[] next2Int() : (i32, i32) => (nextInt(), nextInt());*/
+
+
+#[ExternC] [] printf(fmt: char*, ...) : i32;
+#[ExternC] [] puts(str: char*) : i32;
 
 [] TestPrint(count: i32 = 16)
 {
@@ -41,9 +45,10 @@ val Right: Vector2 = Vector2(1, 0);
 
 [] Main(argc: i32, argv: char**) : i32
 {
-    TestPrint(4);
+    TestPrint();
     val ptr = new (i32, i64, f32);
     for (var i = 0; i < argc; ++i)
         puts(argv[i]);
+    delete ptr;
     return 0;
 }

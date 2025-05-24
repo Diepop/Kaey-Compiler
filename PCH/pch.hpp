@@ -18,8 +18,6 @@
 #include <llvm/Support/Error.h>
 #include <llvm/Support/TargetSelect.h>
 
-#include <opencv2/opencv.hpp>
-
 #include <cassert>
 
 #include <algorithm>

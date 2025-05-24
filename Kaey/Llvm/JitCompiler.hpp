@@ -27,7 +27,7 @@ namespace Kaey::Llvm
         llvm::DataLayout& DataLayout() const;
         llvm::LLVMContext& Context() const;
         void AddModule(std::unique_ptr<llvm::Module> mod);
-        llvm::Expected<llvm::JITEvaluatedSymbol> FindSymbol(llvm::StringRef Name);
+        llvm::Expected<llvm::orc::ExecutorSymbolDef> FindSymbol(llvm::StringRef name);
         void AddSymbol(llvm::StringRef name, void* ptr);
     private:
         struct Vars;

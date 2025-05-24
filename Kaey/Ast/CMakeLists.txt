@@ -1,6 +1,4 @@
-cmake_minimum_required (VERSION 3.0)
-
-set(AstDir "${CMAKE_SOURCE_DIR}/Kaey/Ast/")
+set(AstDir ${CMAKE_CURRENT_SOURCE_DIR}/)
 
 set(AstSources
     "CreateAst.hpp" "CreateAst.cpp"
@@ -20,4 +18,4 @@ list(TRANSFORM AstSources PREPEND ${AstDir})
 
 add_library(KaeyAst STATIC ${AstSources})
 target_include_directories(KaeyAst PRIVATE ${AstDir})
-target_precompile_headers(KaeyAst REUSE_FROM KaeyLexer)
+target_precompile_headers(KaeyAst REUSE_FROM PCH)

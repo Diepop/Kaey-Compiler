@@ -20,6 +20,15 @@
   </Type>
 
   <!-- Llvm -->
+  <Type Name="Kaey::Llvm::Expression">
+    <DisplayString>{{Type={type->name}}}</DisplayString>
+    <Expand>
+      <Item Name="ModuleContext">mod</Item>
+      <Item Name="Type">type</Item>
+      <Item Name="Value">value</Item>
+    </Expand>
+  </Type>
+    
   <Type Name="Kaey::Llvm::BaseType">
     <DisplayString>{{Name={name}}}</DisplayString>
     <Expand>
@@ -103,6 +112,15 @@
       <Item Name="ModuleContext">mod</Item>
       <Item Name="Name">owner->name</Item>
       <Item Name="Type">functionType</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="Kaey::Llvm::IntrinsicFunction">
+    <DisplayString>{{Name={owner->name}, Type={type->name}}}</DisplayString>
+    <Expand>
+      <Item Name="ModuleContext">mod</Item>
+      <Item Name="Name">owner->name</Item>
+      <Item Name="Type">type</Item>
     </Expand>
   </Type>
   

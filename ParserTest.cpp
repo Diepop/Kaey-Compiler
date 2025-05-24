@@ -1,6 +1,8 @@
 #include "Kaey/Parser/KaeyParser.hpp"
 #include "Kaey/Others/GraphvizPlotter.hpp"
 
+#include <opencv2/opencv.hpp>
+
 //x64 double -> n >= 27, float -> n >= 29
 //x86 double -> n >= 32, float -> n >= 33
 

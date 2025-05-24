@@ -11,7 +11,7 @@ namespace Kaey::Llvm
 
     struct IObject : Variant<IObject,
         struct FunctionOverload,
-        struct InstrinsicFunction,
+        struct IntrinsicFunction,
         struct Expression,
         struct VariableReference,
         struct Constant,

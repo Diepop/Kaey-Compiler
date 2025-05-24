@@ -104,17 +104,21 @@ namespace Kaey::Ast
         {
             auto ty = overload->Type();
             auto paramTypes = ty->ParameterTypes();
-            if (argTypes.size() < paramTypes.size())
+            if (argTypes.size() > paramTypes.size() && !ty->IsVariadic())
                 continue;
-            if (argTypes.size() > paramTypes.size() &&
-                !ty->IsVariadic())
+            auto params = overload->Parameters();
+            if (argTypes.size() < paramTypes.size() && rn::any_of(params | vs::drop(argTypes.size()), [](ParameterDeclaration* pd)
+                {
+                    return pd->InitializingExpression() == nullptr;
+                }))
                 continue;
-            if (!rn::equal(paramTypes, argTypes | vs::take(paramTypes.size()), [](Ast::Type* l, Ast::Type* r)
+            auto n = std::min(paramTypes.size(), argTypes.size());
+            if (!rn::equal(paramTypes | vs::take(n), argTypes | vs::take(n), [](Ast::Type* l, Ast::Type* r)
                 {
                     return l == r || l == r->RemoveReference();
                 }))
                 continue;
-                result.emplace_back(overload);
+            result.emplace_back(overload);
         }
         return result;
     }

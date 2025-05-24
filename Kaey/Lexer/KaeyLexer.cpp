@@ -1,8 +1,11 @@
 #include "KaeyLexer.hpp"
 
+#include <algorithm>
+
+#include <ranges>
+
 namespace Kaey::Lexer
 {
-
     StringStream StringStream::FromFile(std::filesystem::path path)
     {
         std::ifstream file;
@@ -230,16 +233,17 @@ namespace Kaey::Lexer
         auto consumeToken = [this]() -> Token*
         {
             auto position = ss->CurrentPosition();
-            if (!tokens.empty() && position <= tokens.back()->Position())
+            if (!tokens.empty() && position <= (ptrdiff_t)tokens.back()->Position())
             {
-                auto it = find_if(tokens.rbegin(), tokens.rend(), [=](auto& tk) { return tk->Position() == position; });
+                
+                auto it = rn::find_if(tokens | vs::reverse, [=](auto& tk) { return tk->Position() == position; });
                 if (it != tokens.rend())
                 {
                     ss->Seek((*it)->Length());
                     return (*it).get();
                 }
             }
-            if (position >= ss->Count())
+            if (position >= (ptrdiff_t)ss->Count())
                 return eof ? eof : eof = tokens.emplace_back(std::make_unique<Eof>(position, 0, 0, ""))->As<Eof>();
             for (auto& fn : regexes) if (auto ptr = fn(ss, position, std::count(ss->begin(), ss->begin() + position, '\n') + 1, 0))
             {

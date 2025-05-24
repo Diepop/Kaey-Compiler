@@ -102,18 +102,18 @@ namespace Kaey::Llvm
         cantFail(compileLayer.add(*mainLib, llvm::orc::ThreadSafeModule(move(mod), ctx)));
     }
 
-    llvm::Expected<llvm::JITEvaluatedSymbol> JitCompiler::FindSymbol(llvm::StringRef Name)
+    llvm::Expected<llvm::orc::ExecutorSymbolDef> JitCompiler::FindSymbol(llvm::StringRef name)
     {
         vars();
-        llvm::orc::JITDylib* libs[]{mainLib};
-        return es.lookup(libs, mangle(Name));
+        llvm::orc::JITDylib* libs[]{ mainLib };
+        return es.lookup(libs, mangle(name));
     }
 
     void JitCompiler::AddSymbol(llvm::StringRef name, void* ptr)
     {
         vars();
         llvm::orc::SymbolMap m;
-        m[mangle(name)] = {llvm::pointerToJITTargetAddress(ptr), llvm::JITSymbolFlags()};
+        m[mangle(name)] = { llvm::orc::ExecutorAddr::fromPtr(ptr), llvm::JITSymbolFlags() };
         cantFail(mainLib->define(absoluteSymbols(m)));
     }
 }
