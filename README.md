@@ -130,4 +130,6 @@ Hello: 13
 Hello: 14
 Hello: 15
 Hello: 16
+C:\Users\lucas\source\repos\Diepop\Kaey-Compiler\out\build\x64-Debug\Compiler.exe
+../../../Source.kaey
 ```
