@@ -51,7 +51,7 @@ namespace Kaey::Ast
         
     }
 
-        ConstructorDeclaration::ConstructorDeclaration(SystemModule* sys, Context* parentContext, Ast::Type* classType, vector<pair<string, Ast::Type*>> parameters, bool isDefault, bool isDestructor) :
+    ConstructorDeclaration::ConstructorDeclaration(SystemModule* sys, Context* parentContext, Ast::Type* classType, vector<pair<string, Ast::Type*>> parameters, bool isDefault, bool isDestructor) :
         ParentClass(sys, parentContext, classType, [&]
         {
             assert(!isDestructor || !isDefault);
@@ -137,4 +137,9 @@ namespace Kaey::Ast
 
     }
 
+    PropertyDeclaration::PropertyDeclaration(SystemModule* sys, Context* parentContext, string name, Ast::Type* type, Expression* initializingExpression) :
+        ParentClass(sys, parentContext, move(name), type, initializingExpression)
+    {
+
+    }
 }

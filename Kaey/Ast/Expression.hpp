@@ -22,6 +22,7 @@ namespace Kaey::Ast
         struct DeleteExpression,
         struct ReturnExpression,
         struct MemberAccessExpression,
+        struct PropertyAccessExpression,
         struct SubscriptOperatorExpression,
         struct TernaryExpression,
         struct SizeOfExpression,

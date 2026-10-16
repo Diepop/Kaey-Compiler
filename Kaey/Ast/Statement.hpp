@@ -16,6 +16,7 @@ namespace Kaey::Ast
         struct SwitchStatement,
         struct ClassDeclaration,
         struct FieldDeclaration,
+        struct PropertyDeclaration,
         struct ParameterDeclaration,
         struct MethodDeclaration,
         struct AttributeDeclaration,

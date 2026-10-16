@@ -70,13 +70,11 @@ namespace Kaey::Llvm
         FloatType(ModuleContext* mod, int bits);
         int Bits() const { return bits; }
         void DeclareMethods() override;
-        llvm::Constant* CreateConstantValue(llvm::StringRef value);
-        llvm::Constant* CreateConstantValue(float value);
         llvm::Constant* CreateConstantValue(double value);
-        Constant* CreateConstant(float value);
+        Constant* CreateConstant(double value);
     private:
         int bits;
-        unordered_map<string, Constant*> constantMap;
+        unordered_map<double, Constant*> constantMap;
     };
 
     struct FunctionPointerType final : Type::With<FunctionPointerType, ValueParameterType>
@@ -104,7 +102,7 @@ namespace Kaey::Llvm
         llvm::ConstantInt* CreateConstantValue(int64_t value);
         Constant* CreateConstantUnsigned(uint64_t value);
         Constant* CreateConstant(int64_t value);
-        Expression* PassArgument(FunctionOverload* fn, Expression* expr) override;
+        Expression* PassArgument(FunctionOverload* fn, Expression* expr, bool variadicArg) override;
         uint64_t GetConstantValue(Constant* c);
     private:
         int bits;
@@ -142,7 +140,7 @@ namespace Kaey::Llvm
         ReferenceType* ReferenceTo() override { return this; }
         Llvm::Type* UnderlyingType() const { return underlyingType; }
         Llvm::Type* RemoveReference() override;
-        Expression* PassArgument(FunctionOverload* fn, Expression* expr) override;
+        Expression* PassArgument(FunctionOverload* fn, Expression* expr, bool variadicArg) override;
         Expression* Allocate(FunctionOverload* fn) override;
         void DeclareMethods() override;
         void Construct(FunctionOverload* fn, Expression* inst, vector<Expression*> args) override;
@@ -169,7 +167,7 @@ namespace Kaey::Llvm
     {
         VariantType(ModuleContext* mod, vector<Type*> elementTypes);
         ArrayView<Type*> ElementTypes() const { return elementTypes; }
-        Type* ElementType(int i) const { return elementTypes[i]; }
+        Type* ElementType(std::integral auto i) const { return elementTypes[i]; }
         int ElementCount() const { return (int)elementTypes.size(); }
         void DeclareMethods() override;
         bool IsTriviallyCopyable() const override { return isTriviallyCopyable; }

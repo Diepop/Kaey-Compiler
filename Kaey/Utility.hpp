@@ -19,7 +19,48 @@ namespace Kaey
     template<class T, template<class...>class Specialization>
     constexpr auto is_specialization = is_specialization_s<T, Specialization>::value;
 
-    constexpr auto operator""_f(const char* f, size_t) { return [=](auto&&... args) { return std::vformat(f, std::make_format_args(args...)); }; }
+#if __cplusplus >= 201703L //C++20
+    namespace detail
+    {
+        struct FormatTemplate
+        {
+            const char* Value;
+            const wchar_t* Unicode;
+            constexpr FormatTemplate(const char* value) : Value(value), Unicode(nullptr) {}
+            constexpr FormatTemplate(const wchar_t* value) : Value(nullptr), Unicode(value) {}
+        };
+    }
+
+    template<detail::FormatTemplate Fmt>
+    constexpr auto operator""_f()
+    {
+        return []<class... Args>(Args&&... args)
+        {
+            if constexpr (Fmt.Value != nullptr)
+                return std::format(Fmt.Value, std::forward<Args>(args)...);
+            else return std::format(Fmt.Unicode, std::forward<Args>(args)...);
+        };
+    }
+
+#else
+    constexpr auto operator""_f(const char* f, size_t l)
+    {
+        return [f](auto&&... args)
+        {
+            return std::vformat(f, std::make_format_args(args...));
+        };
+    }
+
+    constexpr auto operator""_f(const wchar_t* f, size_t l)
+    {
+        return [f](auto&&... args)
+        {
+            return std::vformat(f, std::make_wformat_args(args...));
+        };
+    }
+
+#endif
+
 
     template<class... Args>
     void print(std::format_string<Args...> fmt, Args&&... args)
@@ -549,7 +590,7 @@ namespace Kaey
     }
     
     template<class Res = void, class BaseType, class Visitor, class... Args>
-    static auto Dispatch(BaseType* value, Visitor&& visitor, Args&&... args)
+    auto Dispatch(BaseType* value, Visitor&& visitor, Args&&... args)
     {
         if constexpr (std::is_pointer_v<std::remove_reference_t<Visitor>>)
             return Dispatch<Res>(value, *visitor);
@@ -558,8 +599,23 @@ namespace Kaey
         else return BaseType::template Visit<Res>(value, visitor);
     }
 
+    template<class BaseType, class Visitor>
+    auto Dispatch(BaseType* value, Visitor* visitor)
+    {
+        return Dispatch(value, *visitor);
+    }
+
     //Uses "v->Type()" in all the elements of the range.
-    constexpr auto type_of_range = vs::transform([](auto ptr) { return ptr->Type(); });
+    constexpr auto type_of_range = vs::transform([](auto&& ptr)
+    {
+        if constexpr (requires { ptr.Type(); })
+            return ptr.Type();
+        else if constexpr (requires { ptr->Type(); })
+            return ptr->Type();
+        else if constexpr (requires { ptr->Type; })
+            return ptr->Type;
+        else return ptr.Type;
+    });
 
     //Uses "v->Name()" in all the elements of the range.
     constexpr auto name_of_range = vs::transform([](auto ptr) { return ptr->Name(); });

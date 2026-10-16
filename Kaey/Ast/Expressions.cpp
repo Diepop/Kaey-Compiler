@@ -60,6 +60,12 @@ namespace Kaey::Ast
 
     }
 
+    PropertyAccessExpression::PropertyAccessExpression(SystemModule* sys, Expression* owner, PropertyDeclaration* property) :
+        ParentClass(sys, property->Getter->ReturnType()), owner(owner), property(property)
+    {
+        
+    }
+
     SubscriptOperatorExpression::SubscriptOperatorExpression(SystemModule* sys, Ast::Type* type, Expression* callee, vector<Expression*> arguments) :
         ParentClass(sys, type), callee(callee), arguments(move(arguments))
     {

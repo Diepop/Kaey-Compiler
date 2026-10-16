@@ -50,7 +50,7 @@ namespace Kaey::Ast
         ~SystemModule() override = default;
 
         ReferenceType* GetReferenceType(Type* type);
-        PointerType* GetPointerType(Type* type);
+        PointerType* GetPointerType(Type* underlyingType);
         OptionalType* GetOptionalType(Type* type);
         FunctionPointerType* GetFunctionPointerType(vector<Type*> paramTypes, Type* returnType, bool isVariadic);
         ArrayType* GetArrayType(Type* underlyingType, int64_t length);
@@ -60,7 +60,7 @@ namespace Kaey::Ast
         VoidType* GetVoidType();
         BooleanType* GetBooleanType();
         CharacterType* GetCharacterType();
-        FloatType* GetFloatType();
+        FloatType* GetFloatType(int bits);
 
         void AddObject(unique_ptr<IObject> obj);
 
@@ -83,8 +83,17 @@ namespace Kaey::Ast
                 IntegerType* UInt8, * UInt16, * UInt32, * UInt64;
             };
         };
-        FloatType* FloatTy;
-        //DoubleType* DoubleTy;
+
+        union
+        {
+            FloatType* FloatTypes[2];
+            struct
+            {
+                FloatType* Float32;
+                FloatType* Float64;
+            };
+        };
+        
         unordered_map<Type*, ReferenceType*> ReferenceMap;
         unordered_map<Type*, PointerType*> PointerMap;
         unordered_map<Type*, OptionalType*> OptionalMap;

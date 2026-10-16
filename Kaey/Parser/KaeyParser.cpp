@@ -870,10 +870,8 @@ namespace Kaey::Parser
                 if (!e) throw UnexpectedTokenException(stream.Peek());
                 expr = e;
             }
-
             lhs = Create<BinaryOperatorExpression>(lhs, op, expr);
         }
-        return lhs;
     }
 
     Statement::Statement(vector<AttributeDeclaration*> attributes) : Attributes(move(attributes))

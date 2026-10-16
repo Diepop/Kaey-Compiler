@@ -63,7 +63,7 @@ namespace Kaey::Llvm
         return floatType;
     }
 
-    FloatType* ModuleContext::GetDoublingType()
+    FloatType* ModuleContext::GetDoubleType()
     {
         return doubleType;
     }
@@ -123,6 +123,11 @@ namespace Kaey::Llvm
         auto fn = FindFunction(name);
         if (!fn) fn = CreateObject<Function>(move(name));
         assert(fn->Name() != "Main" || fn->Overloads().empty() && "Main Function may not be overloaded!");
+        if (auto over = fn->FindOverload(args | type_of_range | to_vector))
+        {
+            assert(over->ReturnType() == returnType && "Overload was already declared with a different return type!");
+            return over->As<FunctionOverload>();
+        }
         auto result = CreateObject<FunctionOverload>(fn, args | to_vector, returnType, isVariadic, noMangling || fn->Name() == "Main");
         fn->AddOverload(result);
         return result;

@@ -205,7 +205,7 @@ namespace Kaey::Llvm
         {
             amper = AddFunction(AMPERSAND_OPERATOR);
             assign->AddIntrinsicOverload(PointerTo(), { refTy }, false,
-                [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
+                [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
                 {
                     return caller->CreateAddressOf(args[0]);
                 }
@@ -226,7 +226,7 @@ namespace Kaey::Llvm
         return mod->CreateObject<ArgumentReference>(function, declaration.Name, declaration.Type->ReferenceTo(), arg);
     }
 
-    Expression* Type::PassArgument(FunctionOverload* fn, Expression* expr)
+    Expression* Type::PassArgument(FunctionOverload* fn, Expression* expr, bool variadicArg)
     {
         auto inst = Allocate(fn);
         Construct(fn, inst, { expr });
@@ -366,16 +366,38 @@ namespace Kaey::Llvm
         return Module()->CreateObject<ArgumentReference>(fn, declaration.Name, declaration.Type->ReferenceTo(), inst);
     }
 
-    Expression* ValueParameterType::PassArgument(FunctionOverload* fn, Expression* expr)
+    Expression* ValueParameterType::PassArgument(FunctionOverload* fn, Expression* expr, bool variadicArg)
     {
         if (this != expr->Type()->RemoveReference())
         {
             fn->BeginCall(this);
                 fn->AddCallParameter(expr);
-            return PassArgument(fn, fn->EndCall());
+            return PassArgument(fn, fn->EndCall(), variadicArg);
         }
-        auto v = fn->Builder()->CreateLoad(expr->Type()->RemoveReference()->Instance(), expr->Value());
-        return Module()->CreateObject<Expression>(this, v);
+        Type* ty = this;
+        auto v = (llvm::Value*)fn->Builder()->CreateLoad(expr->Type()->RemoveReference()->Instance(), expr->Value());
+        if (variadicArg) //Variadic Argument Promotion
+        {
+            if (this == Module()->GetFloatType())
+            {
+                ty = Module()->GetDoubleType();
+                v = fn->Builder()->CreateFPCast(v, ty->Instance());
+            }
+            else if (this == Module()->GetCharacterType())
+            {
+                ty = Module()->GetIntegerType(32, true);
+                v = fn->Builder()->CreateIntCast(v, ty->Instance(), true);
+            }
+            else if (auto it = this->As<IntegerType>())
+            {
+                if (it->Bits() < 32)
+                {
+                    ty = Module()->GetIntegerType(32, true);
+                    v = fn->Builder()->CreateIntCast(v, ty->Instance(), true);
+                }
+            }
+        }
+        return Module()->CreateObject<Expression>(ty, v);
     }
 
     llvm::Type* ValueParameterType::TypeOfParameter() const

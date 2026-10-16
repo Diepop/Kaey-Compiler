@@ -63,7 +63,7 @@ namespace Kaey::Ast
 
     FunctionPointerType* Context::GetFunctionPointerType(vector<Type*> paramTypes, Type* returnType, bool isVariadic) const
     {
-        return System()->GetFunctionPointerType(paramTypes, returnType, isVariadic);
+        return System()->GetFunctionPointerType(move(paramTypes), returnType, isVariadic);
     }
 
     ArrayType* Context::GetArrayType(Type* underlyingType, int64_t length) const
@@ -86,9 +86,9 @@ namespace Kaey::Ast
         return System()->GetIntegerType(bits, isSigned);
     }
 
-    FloatType* Context::GetFloatType() const
+    FloatType* Context::GetFloatType(int bits) const
     {
-        return System()->GetFloatType();
+        return System()->GetFloatType(bits);
     }
 
     CharacterType* Context::GetCharacterType() const
@@ -214,7 +214,7 @@ namespace Kaey::Ast
 
     const string SystemModule::DefaultName = "System";
 
-    SystemModule::SystemModule() : Module(this, SystemModule::DefaultName)
+    SystemModule::SystemModule() : Module(this, DefaultName)
     {
         VoidTy  = CreateObject<VoidType>();
         BoolTy  = CreateObject<BooleanType>();
@@ -227,7 +227,8 @@ namespace Kaey::Ast
         Int16   = CreateObject<IntegerType>(16, true);
         Int32   = CreateObject<IntegerType>(32, true);
         Int64   = CreateObject<IntegerType>(64, true);
-        FloatTy = CreateObject<FloatType>();
+        Float32 = CreateObject<FloatType>(32);
+        Float64 = CreateObject<FloatType>(64);
 
         for (auto& n : OperatorNames)
             RegisterFunction(CreateObject<Function>(string(n)));
@@ -246,12 +247,40 @@ namespace Kaey::Ast
         RegisterType(Int32);
         RegisterType(Int64);
 
-        RegisterType(FloatTy);
+        RegisterType(Float32);
+        RegisterType(Float64);
 
         static constexpr auto& n1 = "_1";
         static constexpr auto& n2 = "_2";
 
         for (auto ty : IntTypes)
+        {
+            auto ref = ty->ReferenceTo();
+            ty->DeclareMethod(PLUS_OPERATOR, {  }, ref);
+            ty->DeclareMethod(MINUS_OPERATOR, {  }, ref);
+
+            ty->DeclareMethod(INCREMENT_OPERATOR, {  }, ref);
+            ty->DeclareMethod(DECREMENT_OPERATOR, {  }, ref);
+
+            ty->DeclareMethod(PLUS_OPERATOR, { { "_1", ref } }, ref);
+            ty->DeclareMethod(MINUS_OPERATOR, { { "_1", ref } }, ref);
+            ty->DeclareMethod(STAR_OPERATOR, { { "_1", ref } }, ref);
+            ty->DeclareMethod(SLASH_OPERATOR, { { "_1", ref } }, ref);
+            ty->DeclareMethod(MODULO_OPERATOR, { { "_1", ref } }, ref);
+
+            ty->DeclareMethod(LESS_OPERATOR, { { "_1", ty } }, BoolTy);
+            ty->DeclareMethod(GREATER_OPERATOR, { { "_1", ty } }, BoolTy);
+            ty->DeclareMethod(LESS_EQUAL_OPERATOR, { { "_1", ty } }, BoolTy);
+            ty->DeclareMethod(GREATER_EQUAL_OPERATOR, { { "_1", ty } }, BoolTy);
+
+            ty->DeclareMethod(CARET_OPERATOR, { { "_1", ref } }, ref);
+            ty->DeclareMethod(AMPERSAND_OPERATOR, { { "_1", ref } }, ref);
+            ty->DeclareMethod(PIPE_OPERATOR, { { "_1", ref } }, ref);
+
+            ty->CreateDefaultFunctions();
+        }
+
+        for (auto ty : FloatTypes)
         {
             auto ref = ty->ReferenceTo();
             ty->DeclareMethod(PLUS_OPERATOR, {  }, ref);
@@ -293,23 +322,19 @@ namespace Kaey::Ast
         return it->second;
     }
 
-    PointerType* SystemModule::GetPointerType(Type* type)
+    PointerType* SystemModule::GetPointerType(Type* underlyingType)
     {
-        assert(type->IsNot<ReferenceType>() && type->IsNot<FunctionPointerType>());
+        assert(underlyingType->IsNot<ReferenceType>() && underlyingType->IsNot<FunctionPointerType>());
         auto& map = PointerMap;
-        auto it = map.find(type);
-        if (it == map.end())
+        auto [it, emplaced] = map.try_emplace(underlyingType);
+        if (emplaced)
         {
-            bool _;
-            tie(it, _) = map.emplace(type, CreateObject<PointerType>(type));
-            auto ptrTy = it->second;
-            auto ty = ptrTy->UnderlyingType();
-            if (ty->IsNot<VoidType>())
+            auto& ty = it->second = CreateObject<PointerType>(underlyingType);
+            if (underlyingType->IsNot<VoidType>())
             {
-                auto ref = ty->ReferenceTo();
-                ptrTy->DeclareMethod(STAR_OPERATOR, {  }, ref);
+                ty->DeclareMethod(STAR_OPERATOR, {  }, underlyingType->ReferenceTo());
                 for (auto iTy : IntTypes)
-                    ptrTy->DeclareMethod(SUBSCRIPT_OPERATOR, { { "i", iTy } }, ref);
+                    ty->DeclareMethod(SUBSCRIPT_OPERATOR, { { "i", iTy } }, underlyingType->ReferenceTo());
             }
         }
         return it->second;
@@ -341,7 +366,16 @@ namespace Kaey::Ast
     {
         assert(length > 0);
         auto it = ArrayMap.find({ underlyingType, length });
-        return it != ArrayMap.end() ? it->second : CreateObject<ArrayType>(underlyingType, length);
+        if (it == ArrayMap.end())
+        {
+            bool _;
+            tie(it, _) = ArrayMap.emplace(pair(underlyingType, length), CreateObject<ArrayType>(underlyingType, length));
+            auto ty = it->second;
+            ty->DeclareMethod(PLUS_OPERATOR, {  }, underlyingType->PointerTo());
+            for (auto iTy : IntTypes)
+                ty->DeclareMethod(SUBSCRIPT_OPERATOR, { { "i", iTy } }, underlyingType->ReferenceTo());
+        }
+        return it->second;
     }
 
     TupleType* SystemModule::GetTupleType(vector<Type*> types)
@@ -386,9 +420,15 @@ namespace Kaey::Ast
         return CharTy;
     }
 
-    FloatType* SystemModule::GetFloatType()
+    FloatType* SystemModule::GetFloatType(int bits)
     {
-        return FloatTy;
+        assert(bits == 64 || bits == 32);
+        switch (bits)
+        {
+        case 32: return Float32;
+        case 64: return Float64;
+        default: throw std::runtime_error("Invalid Arguments!");
+        }
     }
 
     void SystemModule::AddObject(unique_ptr<IObject> obj)

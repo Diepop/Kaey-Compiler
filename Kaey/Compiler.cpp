@@ -25,7 +25,7 @@ namespace Kaey::Llvm
 
             IntegerType* Visit(Ast::IntegerType* type) { return mod->GetIntegerType(type->Bits(), type->IsSigned()); }
 
-            FloatType* Visit(Ast::FloatType*) { return mod->GetFloatType(); }
+            FloatType* Visit(Ast::FloatType* type) { return type->Bits() == 64 ? mod->GetDoubleType() : mod->GetFloatType(); }
 
             PointerType* Visit(Ast::PointerType* type) { return Dispatch(type->UnderlyingType(), this)->PointerTo(); }
 
@@ -189,6 +189,16 @@ namespace Kaey::Llvm
                 return function->EndCall();
             }
 
+            Expression* Visit(Ast::ConstructExpression* expr)
+            {
+                auto type = Dispatch(expr->Type(), typeVisitor);
+                assert(type);
+                function->BeginCall(type);
+                for (auto arg : expr->Arguments())
+                    function->AddCallParameter(Dispatch(arg, this));
+                return function->EndCall();
+            }
+
             Expression* Visit(Ast::VariableReferenceExpression* v)
             {
                 auto it = varMap.find(v->Declaration()->Name());
@@ -252,6 +262,16 @@ namespace Kaey::Llvm
                 return owner->GetField(function, expr->Field()->Name());
             }
 
+            Expression* Visit(Ast::PropertyAccessExpression* expr)
+            {
+                auto owner = Dispatch(expr->Owner(), this);
+                auto type = owner->Type()->RemoveReference();
+                auto fn = type->FindFunction(expr->Property()->Getter->Name());
+                function->BeginCall(fn);
+                    function->AddCallParameter(owner);
+                return function->EndCall();
+            }
+
             Expression* Visit(Ast::TupleExpression* expr)
             {
                 auto ty = typeVisitor->Visit(expr->TypeOfTuple());
@@ -264,8 +284,11 @@ namespace Kaey::Llvm
             Expression* Visit(Ast::ReturnExpression* expr)
             {
                 if (expr->Argument()->Is<Ast::CallExpression>())
+                {
                     function->AddOption(ReturnCall{ });
-                function->CreateReturn(Dispatch(expr->Argument(), this));
+                    Dispatch(expr->Argument(), this);
+                }
+                else function->CreateReturn(Dispatch(expr->Argument(), this));
                 return nullptr;
             }
 
@@ -405,6 +428,24 @@ namespace Kaey::Llvm
                 function->End();
             }
 
+            void operator()(Ast::PropertyDeclaration* decl, TypeVisitor* visitor)
+            {
+                typeVisitor = visitor;
+                varMap.clear();
+                declaration = decl->Getter;
+                auto ct = Dispatch(decl->Getter->Parameters()[0]->Type()->RemoveReference(), typeVisitor);
+                function = ct->FindMethodOverload(declaration->Name(), {  })->As<FunctionOverload>();
+                mod = function->Module();
+
+                function->Begin();
+                for (auto param : function->Parameters())
+                    varMap.emplace(param->Name(), param);
+                for (auto statement : declaration->Statements())
+                    Dispatch(statement, this);
+                function->End();
+
+            }
+
         private:
             ClassType* type;
 
@@ -480,12 +521,25 @@ namespace Kaey::Llvm
                 for (auto& [ast, cl] : classMap)
                 {
                     MethodVisitor mVisitor{ cl };
-                    for (auto& cc : ast->Constructors())
+                    for (auto cc : ast->Constructors())
                     {
-                        auto cd = cl->FindMethodOverload(cc->IsConstructor() ? CONSTRUCTOR : DESTRUCTOR, Dispatch(cc->Type(), typeVisitor)->As<FunctionPointerType>()->ParameterTypes() | vs::drop(1) | to_vector)->As<FunctionOverload>();
+                        auto args = Dispatch(cc->Type(), typeVisitor)->As<FunctionPointerType>()->ParameterTypes() | vs::drop(1) | to_vector;
+                        auto cd = cl->FindMethodOverload(cc->IsConstructor() ? CONSTRUCTOR : DESTRUCTOR, move(args))->As<FunctionOverload>();
                         mVisitor(cc, cd, &typeVisitor);
                     }
+
                     cl->CreateMethods();
+
+                    for (auto prop : ast->Properties())
+                    {
+                        mVisitor(prop, &typeVisitor);
+                    }
+
+                    //for (auto prop : ast->Properties())
+                    //{
+                    //    mVisitor(prop, &typeVisitor);
+                    //}
+
                 }
 
                 for (auto& [ast, fn] : fnMap)

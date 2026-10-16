@@ -39,7 +39,7 @@ namespace Kaey::Ast
         CharacterType(SystemModule* mod);
         CharacterConstant* CreateConstant(char value);
     private:
-        unordered_map<uint64_t, CharacterConstant> constants;
+        unordered_map<uint64_t, CharacterConstant*> constants;
     };
 
     struct ClassType final : Type::With<ClassType>
@@ -53,10 +53,12 @@ namespace Kaey::Ast
 
     struct FloatType final : Type::With<FloatType>
     {
-        FloatType(SystemModule* mod);
-        FloatConstant* CreateConstant(float value);
+        FloatType(SystemModule* mod, int bits);
+        int Bits() const { return bits; }
+        FloatConstant* CreateConstant(double value);
     private:
-        unordered_map<float, FloatConstant*> constants;
+        int bits;
+        unordered_map<double, FloatConstant*> constants;
     };
 
     struct FunctionPointerType final : Type::With<FunctionPointerType>
@@ -189,13 +191,14 @@ namespace Kaey::Ast
 
     struct FloatConstant final : Expression::With<FloatConstant, ReferenceExpression>
     {
-        FloatConstant(FloatType* typeOfFloat, float value);
-        float Value() const { return value; }
+        FloatConstant(FloatType* typeOfFloat, double value);
+        float ValueFloat() const { return static_cast<float>(value); }
+        double Value() const { return value; }
         FloatType* TypeOfFloat() const { return typeOfFloat; }
         bool IsConstant() override { return true; }
     private:
-        float value;
         FloatType* typeOfFloat;
+        double value;
     };
 
     struct IntegerConstant final : Expression::With<IntegerConstant, ReferenceExpression>

@@ -112,6 +112,16 @@ namespace Kaey::Ast
         FieldDeclaration* field;
     };
 
+    struct PropertyAccessExpression final : Expression::With<PropertyAccessExpression>
+    {
+        PropertyAccessExpression(SystemModule* sys, Expression* owner, PropertyDeclaration* property);
+        Expression* Owner() const { return owner; }
+        PropertyDeclaration* Property() const { return property; }
+    private:
+        Expression* owner;
+        PropertyDeclaration* property;
+    };
+
     struct SubscriptOperatorExpression final : Expression::With<SubscriptOperatorExpression>
     {
         SubscriptOperatorExpression(SystemModule* sys, Ast::Type* type, Expression* callee, vector<Expression*> arguments);

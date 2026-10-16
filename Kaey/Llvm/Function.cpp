@@ -72,7 +72,7 @@ namespace Kaey::Llvm
             {
                 auto arg = args[i];
                 auto t = arg->Type()->RemoveReference();
-                arr.emplace_back(t->PassArgument(caller, arg)->Value());
+                arr.emplace_back(t->PassArgument(caller, arg, true)->Value());
             }
         }
         else
@@ -252,7 +252,8 @@ namespace Kaey::Llvm
     void FunctionOverload::AddCallParameter(Expression* expr)
     {
         assert(!callStack.empty() && "Use BeginCall first!");
-        callStack.top().Arguments.emplace_back(expr);
+        auto& [vari, args, options] = callStack.top();
+        args.emplace_back(expr);
     }
 
     Expression* FunctionOverload::EndCall()
@@ -296,7 +297,7 @@ namespace Kaey::Llvm
                     if (overloads.empty() && callee->Name() == AMPERSAND_OPERATOR && args.size() == 1) //Default ampersand operator.
                         return CreateAddressOf(args[0]);
                     assert(!overloads.empty() && "No valid overload found!");
-                    assert(overloads.size() == 1 && "Multiples overloads found!");
+                    assert(overloads.size() == 1 && "Multiple overloads found!");
                     return f1(overloads[0]);
                 },
                 [&](Llvm::Type* callee)
@@ -323,7 +324,7 @@ namespace Kaey::Llvm
         auto nOpt = move(nextOption);
         nextOption = nullptr;
         visit(CreateOverload(
-                [=, this](Expression* inst)
+                [=](Expression* inst)
                 {
                     if (!inst) return;
                     auto type = inst->Type()->As<ReferenceType>()->UnderlyingType();
@@ -332,7 +333,7 @@ namespace Kaey::Llvm
                         AddCallParameter(expr);
                     EndCall();
                 },
-                [=, this](string& name)
+                [=](string& name)
                 {
                     AddOption(move(name));
                     BeginCall(expr->Type()->As<ReferenceType>()->UnderlyingType());
@@ -340,7 +341,7 @@ namespace Kaey::Llvm
                     EndCall();
 
                 },
-                [=, this](const ReturnCall&)
+                [=](const ReturnCall&)
                 {
                     CreateReturn(expr);
                 }
@@ -589,7 +590,7 @@ namespace Kaey::Llvm
     void FunctionOverload::AddVariable(VariableReference* v, ptrdiff_t offset)
     {
         auto& vars = scopeStack[scopeStack.size() - (offset + 1)].Variables;
-        assert(v->Name() == "_" || !vars.contains(v->Name()) && "Identifier already present on scope!");
+        assert(v->Name().empty() || v->Name() == "_" || !vars.contains(v->Name()) && "Identifier already present on scope!");
         vars.emplace(v->Name(), v);
     }
 
@@ -753,18 +754,6 @@ namespace Kaey::Llvm
                 }))
                 continue;
             res.emplace_back(overload);
-
-            //if (pTypes.size() > argTypes.size() ||
-            //    pTypes.size() < argTypes.size() && !overload->IsVariadic())
-            //    continue;
-            //if (std::equal(pTypes.begin(), pTypes.end(), argTypes.begin(), [](auto a, auto b) { return a == b || a->RemoveReference() == b->RemoveReference(); }))
-            //    return { overload };
-            //if (std::equal(pTypes.begin(), pTypes.end(), argTypes.begin(), [](auto a, auto b)
-            //    {
-            //        auto cc = a->FindFunction(CONSTRUCTOR);
-            //        return cc && (cc->FindOverload({ a->ReferenceTo(), b }) || cc->FindOverload({ a->ReferenceTo(), b->RemoveReference() }));
-            //    }))
-            //    res.emplace_back(overload);
         }
         return res;
     }

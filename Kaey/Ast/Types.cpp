@@ -12,7 +12,6 @@ namespace Kaey::Ast
     {
         assert(underlyingType->IsNot<ReferenceType>());
         assert(underlyingType && length > 0);
-        DeclareMethod("operator+", {  }, underlyingType->PointerTo());
     }
 
     BooleanType::BooleanType(SystemModule* mod) : ParentClass(mod, "bool"), trueConstant(new BooleanConstant(this, true)), falseConstant(new BooleanConstant(this, false))
@@ -36,9 +35,9 @@ namespace Kaey::Ast
         return declaration;
     }
 
-    FloatType::FloatType(SystemModule* mod) : ParentClass(mod, "f32")
+    FloatType::FloatType(SystemModule* mod, int bits) : ParentClass(mod, "f{}"_f(bits)), bits(bits)
     {
-
+        assert(bits == 64 || bits == 32);
     }
 
     FunctionPointerType::FunctionPointerType(SystemModule* mod, vector<Type*> parameterTypes, Type* returnType, bool isVariadic) :
@@ -97,16 +96,15 @@ namespace Kaey::Ast
 
     ArrayExpression* ArrayType::CreateExpression(vector<Expression*> values)
     {
-        assert((int64_t)values.size() == length);
-        auto it = constants.find(values);
-        if (it == constants.end())
+        assert(int64_t(values.size()) == length);
+        if (rn::all_of(values, &Expression::IsConstant))
         {
-            bool _;
-            auto v = std::make_unique<ArrayExpression>(this, move(values));
-            tie(it, _) = constants.emplace(v->Values(), v.get());
-            System()->AddObject(move(v));
+            auto [it, emplaced] = constants.try_emplace(values);
+            if (emplaced)
+                it->second = System()->CreateObject<ArrayExpression>(this, move(values));
+            return it->second;
         }
-        return it->second;
+        return System()->CreateObject<ArrayExpression>(this, move(values));
     }
 
     ReferenceExpression::ReferenceExpression(SystemModule* sys, ReferenceType* type) : Expression(sys, type)
@@ -139,13 +137,10 @@ namespace Kaey::Ast
 
     CharacterConstant* CharacterType::CreateConstant(char value)
     {
-        auto it = constants.find(value);
-        if (it == constants.end())
-        {
-            bool _;
-            tie(it, _) = constants.emplace(value, CharacterConstant{ this, value });
-        }
-        return &it->second;
+        auto [it, emplaced] = constants.try_emplace(value);
+        if (emplaced)
+            it->second = System()->CreateObject<CharacterConstant>(this, value);
+        return it->second;
     }
 
     CharacterConstant::CharacterConstant(CharacterType* typeOfChar, char value) :
@@ -155,36 +150,26 @@ namespace Kaey::Ast
 
     }
 
-    FloatConstant* FloatType::CreateConstant(float value)
+    FloatConstant::FloatConstant(FloatType* typeOfFloat, double value) :
+        ParentClass(typeOfFloat->System(), typeOfFloat->ReferenceTo()),
+        typeOfFloat(typeOfFloat), value(value)
     {
-        auto it = constants.find(value);
-        if (it == constants.end())
-        {
-            bool _;
-            auto v = std::make_unique<FloatConstant>(this, value);
-            tie(it, _) = constants.emplace(value, v.get());
-            System()->AddObject(move(v));
-        }
-        return it->second;
+        
     }
 
-    FloatConstant::FloatConstant(FloatType* typeOfFloat, float value) :
-        ParentClass(typeOfFloat->System(), typeOfFloat->ReferenceTo()),
-        value(value), typeOfFloat(typeOfFloat)
+    FloatConstant* FloatType::CreateConstant(double value)
     {
-
+        auto [it, emplaced] = constants.try_emplace(value);
+        if (emplaced)
+            it->second = System()->CreateObject<FloatConstant>(this, value);
+        return it->second;
     }
 
     IntegerConstant* IntegerType::CreateConstant(uint64_t value)
     {
-        auto it = constants.find(value);
-        if (it == constants.end())
-        {
-            bool _;
-            auto v = std::make_unique<IntegerConstant>(this, value);
-            tie(it, _) = constants.emplace(value, v.get());
-            System()->AddObject(move(v));
-        }
+        auto [it, emplaced] = constants.try_emplace(value);
+        if (emplaced)
+            it->second = System()->CreateObject<IntegerConstant>(this, value);
         return it->second;
     }
 
@@ -198,13 +183,9 @@ namespace Kaey::Ast
     TupleExpression* TupleType::CreateExpression(vector<Expression*> value)
     {
         assert(value.size() == ElementTypes().size());
-        auto it = constants.find(value);
-        if (it == constants.end())
-        {
-            bool _;
-            auto ty = System()->CreateObject<TupleExpression>(this, move(value));
-            tie(it, _) = constants.emplace(ty->Values(), ty);
-        }
+        auto [it, emplaced] = constants.try_emplace(value);
+        if (emplaced)
+            it->second = System()->CreateObject<TupleExpression>(this, move(value));
         return it->second;
     }
 

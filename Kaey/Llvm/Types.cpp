@@ -49,11 +49,24 @@ namespace Kaey::Llvm
                 return inst;
             }
         );
-        //auto mod = Module();
-        //auto index = FindFunction(INDEX_OPERATOR);
-        //for (auto isSigned : { true, false })
-        //for (auto bits : { 8, 16, 32, 64 })
-        //    index->AddIntrinsicOverload(UnderlyingType()->ReferenceTo(), { ReferenceTo(), mod->GetIntegerType(bits, isSigned) });
+        {
+            auto uRefType = UnderlyingType()->ReferenceTo();
+            auto i64 = Module()->GetIntegerType(64, true);
+            auto fn = FindFunction(SUBSCRIPT_OPERATOR);
+            for (auto isSigned : { true, false })
+            for (auto bits : { 8, 16, 32, 64 })
+                fn->AddIntrinsicOverload(UnderlyingType()->ReferenceTo(), { ReferenceTo(), Module()->GetIntegerType(bits, isSigned) })->SetCallback(
+                    [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression* inst) -> Expression*
+                    {
+                        auto builder = caller->Builder();
+                        llvm::Value* v = builder->CreateLoad(args[1]->Type()->RemoveReference()->Instance(), args[1]->Value());
+                        if (bits < 64)
+                            v = isSigned ? builder->CreateSExt(v, i64->Instance()) : builder->CreateZExt(v, i64->Instance());
+                        v = builder->CreateGEP(uRefType->RemoveReference()->Instance(), args[0]->Value(), v);
+                        return Module()->CreateObject<Expression>(uRefType, v);
+                    }
+                );
+        }
     }
 
     llvm::Constant* ArrayType::CreateConstantValue(ArrayView<Constant*> value)
@@ -90,14 +103,14 @@ namespace Kaey::Llvm
         auto refType = ReferenceTo();
         auto constructor = AddFunction(CONSTRUCTOR);
         constructor->AddIntrinsicOverload(vType, { refType }, false,
-            [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
+            [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
             {
                 caller->Builder()->CreateStore(CreateConstantValue(false), args[0]->Value());
                 return nullptr;
             }
         );
         constructor->AddIntrinsicOverload(vType, { refType, refType }, false,
-            [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
+            [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
             {
                 auto builder = caller->Builder();
                 auto v = builder->CreateLoad(args[1]->Type()->RemoveReference()->Instance(), args[1]->Value());
@@ -281,37 +294,44 @@ namespace Kaey::Llvm
         auto bType = m->GetBooleanType();
         auto constructor = AddFunction(CONSTRUCTOR);
         constructor->AddIntrinsicOverload(vType, { refType }, false,
-            [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
+            [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
             {
                 auto builder = caller->Builder();
-                builder->CreateStore(CreateConstantValue("0"), args[0]->Value());
-                return nullptr;
-            }
-        );
-        constructor->AddIntrinsicOverload(vType, { refType, refType }, false,
-            [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
-            {
-                auto builder = caller->Builder();
-                auto v = builder->CreateLoad(args[1]->Type()->RemoveReference()->Instance(), args[1]->Value());
-                builder->CreateStore(v, args[0]->Value());
+                builder->CreateStore(CreateConstantValue(0), args[0]->Value());
                 return nullptr;
             }
         );
 
+        for (auto bits : { 32, 64 })
+        {
+            auto argTy = bits == 64 ? m->GetDoubleType() : m->GetFloatType();
+            constructor->AddIntrinsicOverload(vType, { refType, argTy->ReferenceTo() }, false,
+                [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
+                {
+                    auto builder = caller->Builder();
+                    auto v = (llvm::Value*)builder->CreateLoad(args[1]->Type()->RemoveReference()->Instance(), args[1]->Value());
+                    if (this != argTy)
+                        v = builder->CreateFPCast(v, Instance());
+                    builder->CreateStore(v, args[0]->Value());
+                    return nullptr;
+                }
+            );
+        }
+
         for (auto isSigned : { true, false })
-            for (auto bits : { 8, 16, 32, 64 })
-            {
-                auto other = m->GetIntegerType(bits, isSigned);
-                constructor->AddIntrinsicOverload(vType, { refType, other }, false,
-                    [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
-                    {
-                        auto builder = caller->Builder();
-                        auto v = builder->CreateLoad(args[1]->Value()->getType(), args[1]->Value());
-                        builder->CreateStore(isSigned ? builder->CreateSIToFP(v, Instance()) : builder->CreateUIToFP(v, Instance()), args[0]->Value());
-                        return nullptr;
-                    }
-                );
-            }
+        for (auto bits : { 8, 16, 32, 64 })
+        {
+            auto other = m->GetIntegerType(bits, isSigned);
+            constructor->AddIntrinsicOverload(vType, { refType, other }, false,
+                [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
+                {
+                    auto builder = caller->Builder();
+                    auto v = builder->CreateLoad(args[1]->Value()->getType(), args[1]->Value());
+                    builder->CreateStore(isSigned ? builder->CreateSIToFP(v, Instance()) : builder->CreateUIToFP(v, Instance()), args[0]->Value());
+                    return nullptr;
+                }
+            );
+        }
 
         AddFunction(DESTRUCTOR)->AddIntrinsicOverload(vType, { refType }, false, IntrinsicFunction::Empty);
 
@@ -333,7 +353,7 @@ namespace Kaey::Llvm
                 auto inst = args[0];
                 auto builder = caller->Builder();
                 auto v1 = (llvm::Value*)builder->CreateLoad(inst->Type()->RemoveReference()->Instance(), inst->Value());
-                auto v2 = CreateConstantValue("1");
+                auto v2 = CreateConstantValue(1);
                 auto v = builder->CreateFAdd(v1, v2);
                 builder->CreateStore(v, inst->Value());
                 return inst;
@@ -346,7 +366,7 @@ namespace Kaey::Llvm
                 auto inst = args[0];
                 auto builder = caller->Builder();
                 auto v1 = (llvm::Value*)builder->CreateLoad(inst->Type()->RemoveReference()->Instance(), inst->Value());
-                auto v2 = CreateConstantValue("1");
+                auto v2 = CreateConstantValue(1);
                 auto v = builder->CreateFSub(v1, v2);
                 builder->CreateStore(v, inst->Value());
                 return inst;
@@ -354,7 +374,7 @@ namespace Kaey::Llvm
         );
 
         FindFunction(POST_INCREMENT_OPERATOR)->AddIntrinsicOverload(this, { refType }, false,
-            [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression* inst) -> Expression*
+            [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression* inst) -> Expression*
             {
                 Construct(caller, inst, { args[0] });
                 inc->Call(caller, args, nullptr);
@@ -363,7 +383,7 @@ namespace Kaey::Llvm
         );
 
         FindFunction(POST_DECREMENT_OPERATOR)->AddIntrinsicOverload(this, { refType }, false,
-            [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression* inst) -> Expression*
+            [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression* inst) -> Expression*
             {
                 Construct(caller, inst, { args[0] });
                 dec->Call(caller, args, nullptr);
@@ -382,7 +402,7 @@ namespace Kaey::Llvm
         auto minus = FindFunction(MINUS_OPERATOR);
         minus->AddIntrinsicOverload(this, { this, this }, false, CREATE_BINARY_OPERATOR(CreateFSub));
         minus->AddIntrinsicOverload(this, { this }, false,
-            [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression* inst)->Expression*
+            [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression* inst) -> Expression*
             {
                 auto builder = caller->Builder();
                 auto v = builder->CreateLoad(args[0]->Type()->RemoveReference()->Instance(), args[0]->Value());
@@ -392,33 +412,23 @@ namespace Kaey::Llvm
             }
         );
 
-        FindFunction(STAR_OPERATOR)->AddIntrinsicOverload(this, { this, this }, false, CREATE_BINARY_OPERATOR(CreateFMul));
+        FindFunction(STAR_OPERATOR)->AddIntrinsicOverload (this, { this, this }, false, CREATE_BINARY_OPERATOR(CreateFMul));
         FindFunction(SLASH_OPERATOR)->AddIntrinsicOverload(this, { this, this }, false, CREATE_BINARY_OPERATOR(CreateFDiv));
 
-        FindFunction(PLUS_ASSIGN_OPERATOR)->AddIntrinsicOverload(refType, { refType, this }, false, CREATE_ASSIGNMENT_OPERATOR(CreateFAdd));
+        FindFunction(PLUS_ASSIGN_OPERATOR)->AddIntrinsicOverload (refType, { refType, this }, false, CREATE_ASSIGNMENT_OPERATOR(CreateFAdd));
         FindFunction(MINUS_ASSIGN_OPERATOR)->AddIntrinsicOverload(refType, { refType, this }, false, CREATE_ASSIGNMENT_OPERATOR(CreateFSub));
-        FindFunction(STAR_ASSIGN_OPERATOR)->AddIntrinsicOverload(refType, { refType, this }, false, CREATE_ASSIGNMENT_OPERATOR(CreateFMul));
+        FindFunction(STAR_ASSIGN_OPERATOR)->AddIntrinsicOverload (refType, { refType, this }, false, CREATE_ASSIGNMENT_OPERATOR(CreateFMul));
         FindFunction(SLASH_ASSIGN_OPERATOR)->AddIntrinsicOverload(refType, { refType, this }, false, CREATE_ASSIGNMENT_OPERATOR(CreateFDiv));
 
         //Comparison
-        FindFunction(EQUAL_OPERATOR)->AddIntrinsicOverload(bType, { this, this }, false, CREATE_BINARY_OPERATOR(CreateFCmpOEQ));
-        FindFunction(NOT_EQUAL_OPERATOR)->AddIntrinsicOverload(bType, { this, this }, false, CREATE_BINARY_OPERATOR(CreateFCmpUNE));
-        FindFunction(LESS_OPERATOR)->AddIntrinsicOverload(bType, { this, this }, false, CREATE_BINARY_OPERATOR(CreateFCmpOLT));
-        FindFunction(GREATER_OPERATOR)->AddIntrinsicOverload(bType, { this, this }, false, CREATE_BINARY_OPERATOR(CreateFCmpOGT));
-        FindFunction(LESS_EQUAL_OPERATOR)->AddIntrinsicOverload(bType, { this, this }, false, CREATE_BINARY_OPERATOR(CreateFCmpOLE));
+        FindFunction(EQUAL_OPERATOR)->AddIntrinsicOverload        (bType, { this, this }, false, CREATE_BINARY_OPERATOR(CreateFCmpOEQ));
+        FindFunction(NOT_EQUAL_OPERATOR)->AddIntrinsicOverload    (bType, { this, this }, false, CREATE_BINARY_OPERATOR(CreateFCmpUNE));
+        FindFunction(LESS_OPERATOR)->AddIntrinsicOverload         (bType, { this, this }, false, CREATE_BINARY_OPERATOR(CreateFCmpOLT));
+        FindFunction(GREATER_OPERATOR)->AddIntrinsicOverload      (bType, { this, this }, false, CREATE_BINARY_OPERATOR(CreateFCmpOGT));
+        FindFunction(LESS_EQUAL_OPERATOR)->AddIntrinsicOverload   (bType, { this, this }, false, CREATE_BINARY_OPERATOR(CreateFCmpOLE));
         FindFunction(GREATER_EQUAL_OPERATOR)->AddIntrinsicOverload(bType, { this, this }, false, CREATE_BINARY_OPERATOR(CreateFCmpOGE));
 
         Type::DeclareMethods();
-    }
-
-    llvm::Constant* FloatType::CreateConstantValue(llvm::StringRef value)
-    {
-        return llvm::ConstantFP::get(Instance(), value);
-    }
-
-    llvm::Constant* FloatType::CreateConstantValue(float value)
-    {
-        return CreateConstantValue(std::to_string(value));
     }
 
     llvm::Constant* FloatType::CreateConstantValue(double value)
@@ -426,17 +436,15 @@ namespace Kaey::Llvm
         return llvm::ConstantFP::get(Instance(), value);
     }
 
-    Constant* FloatType::CreateConstant(float value)
+    Constant* FloatType::CreateConstant(double value)
     {
-        auto id = std::to_string(value);
-        auto it = constantMap.find(id);
-        if (it == constantMap.end())
+        auto [it, emplaced] = constantMap.try_emplace(value);
+        if (emplaced)
         {
-            auto name = "const_f{}_{}"_f(bits, id);
+            auto name = "const_f{}_{}"_f(bits, value);
             auto c = CreateConstantValue(value);
             auto v = new llvm::GlobalVariable(*Module()->Module(), Instance(), true, llvm::GlobalValue::LinkageTypes::InternalLinkage, c, name);
-            bool _;
-            tie(it, _) = constantMap.emplace(move(id), Module()->CreateObject<Constant>(ReferenceTo(), v, c));
+            it->second = Module()->CreateObject<Constant>(ReferenceTo(), v, c);
         }
         return it->second;
     }
@@ -487,7 +495,7 @@ namespace Kaey::Llvm
         auto bType = m->GetBooleanType();
         auto constructor = AddFunction(CONSTRUCTOR);
         constructor->AddIntrinsicOverload(vType, { refType }, false,
-            [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
+            [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
             {
                 auto builder = caller->Builder();
                 builder->CreateStore(CreateConstantValue((int64_t)0), args[0]->Value());
@@ -495,7 +503,7 @@ namespace Kaey::Llvm
             }
         );
         constructor->AddIntrinsicOverload(vType, { refType, refType }, false,
-            [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
+            [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
             {
                 auto builder = caller->Builder();
                 auto v = builder->CreateLoad(args[1]->Type()->RemoveReference()->Instance(), args[1]->Value());
@@ -505,25 +513,25 @@ namespace Kaey::Llvm
         );
 
         for (auto isSigned : { true, false })
-            for (auto bits : { 8, 16, 32, 64 })
-            {
-                auto other = m->GetIntegerType(bits, isSigned);
-                if (other == this)
-                    continue;
-                constructor->AddIntrinsicOverload(vType, { refType, other }, false,
-                    [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
-                    {
-                        auto builder = caller->Builder();
-                        auto v = builder->CreateLoad(args[1]->Type()->RemoveReference()->Instance(), args[1]->Value());
-                        builder->CreateStore(builder->CreateSExt(v, Instance()), args[0]->Value());
-                        return nullptr;
-                    }
-                );
-            }
-
-        for (auto other : { m->GetFloatType(), m->GetDoublingType() })
+        for (auto bits : { 8, 16, 32, 64 })
+        {
+            auto other = m->GetIntegerType(bits, isSigned);
+            if (other == this)
+                continue;
             constructor->AddIntrinsicOverload(vType, { refType, other }, false,
-                [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
+                [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
+                {
+                    auto builder = caller->Builder();
+                    auto v = builder->CreateLoad(args[1]->Type()->RemoveReference()->Instance(), args[1]->Value());
+                    builder->CreateStore(builder->CreateSExt(v, Instance()), args[0]->Value());
+                    return nullptr;
+                }
+            );
+        }
+
+        for (auto other : { m->GetFloatType(), m->GetDoubleType() })
+            constructor->AddIntrinsicOverload(vType, { refType, other }, false,
+                [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
                 {
                     auto builder = caller->Builder();
                     auto v = builder->CreateLoad(args[1]->Type()->RemoveReference()->Instance(), args[1]->Value());
@@ -573,7 +581,7 @@ namespace Kaey::Llvm
         );
 
         FindFunction(POST_INCREMENT_OPERATOR)->AddIntrinsicOverload(this, { refType }, false,
-            [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression* inst) -> Expression*
+            [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression* inst) -> Expression*
             {
                 Construct(caller, inst, { args[0] });
                 inc->Call(caller, args, nullptr);
@@ -582,7 +590,7 @@ namespace Kaey::Llvm
         );
 
         FindFunction(POST_DECREMENT_OPERATOR)->AddIntrinsicOverload(this, { refType }, false,
-            [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression* inst) -> Expression*
+            [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression* inst) -> Expression*
             {
                 Construct(caller, inst, { args[0] });
                 dec->Call(caller, args, nullptr);
@@ -624,7 +632,7 @@ namespace Kaey::Llvm
 
         //Bitwise
         FindFunction(TILDE_OPERATOR)->AddIntrinsicOverload(this, { this }, false,
-            [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression* inst) -> Expression*
+            [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression* inst) -> Expression*
             {
                 auto builder = caller->Builder();
                 auto v = builder->CreateLoad(args[0]->Type()->RemoveReference()->Instance(), args[0]->Value());
@@ -687,7 +695,7 @@ namespace Kaey::Llvm
         return CreateConstantUnsigned((uint64_t)value);
     }
 
-    Expression* IntegerType::PassArgument(FunctionOverload* fn, Expression* expr)
+    Expression* IntegerType::PassArgument(FunctionOverload* fn, Expression* expr, bool variadicArg)
     {
         assert(expr->Type()->RemoveReference() == this);
         if (auto c = expr->As<Constant>())
@@ -807,7 +815,7 @@ namespace Kaey::Llvm
         auto boolTy = m->GetBooleanType();
         auto constructor = AddFunction(CONSTRUCTOR);
         constructor->AddIntrinsicOverload(voidTy, { refTy }, false,
-            [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
+            [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
             {
                 auto builder = caller->Builder();
                 builder->CreateStore(llvm::ConstantPointerNull::get(Instance()), args[0]->Value());
@@ -815,7 +823,7 @@ namespace Kaey::Llvm
             }
         );
         constructor->AddIntrinsicOverload(voidTy, { refTy, refTy }, false,
-            [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
+            [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
             {
                 auto builder = caller->Builder();
                 auto v = builder->CreateLoad(args[1]->Type()->RemoveReference()->Instance(), args[1]->Value());
@@ -825,7 +833,7 @@ namespace Kaey::Llvm
         );
 
         FindFunction(ASSIGN_OPERATOR)->AddIntrinsicOverload(refTy, { refTy, refTy }, false,
-            [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
+            [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
             {
                 auto builder = caller->Builder();
                 auto v = builder->CreateLoad(args[1]->Type()->RemoveReference()->Instance(), args[1]->Value());
@@ -840,7 +848,7 @@ namespace Kaey::Llvm
         {
             auto vPtrTy = voidTy->PointerTo();
             vPtrTy->FindFunction(CONSTRUCTOR)->AddIntrinsicOverload(voidTy, { vPtrTy->ReferenceTo(), refTy }, false,
-                [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
+                [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
                 {
                     auto builder = caller->Builder();
                     auto v = builder->CreateLoad(args[1]->Type()->RemoveReference()->Instance(), args[1]->Value());
@@ -850,7 +858,7 @@ namespace Kaey::Llvm
             );
 
             vPtrTy->FindFunction(ASSIGN_OPERATOR)->AddIntrinsicOverload(refTy, { vPtrTy->ReferenceTo(), refTy }, false,
-                [=, this](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
+                [=](FunctionOverload* caller, ArrayView<Expression*> args, Expression*) -> Expression*
                 {
                     auto builder = caller->Builder();
                     auto v = builder->CreateLoad(args[1]->Type()->RemoveReference()->Instance(), args[1]->Value());
@@ -961,7 +969,7 @@ namespace Kaey::Llvm
         return underlyingType;
     }
 
-    Expression* ReferenceType::PassArgument(FunctionOverload* fn, Expression* expr)
+    Expression* ReferenceType::PassArgument(FunctionOverload* fn, Expression* expr, bool variadicArg)
     {
         return expr;
     }

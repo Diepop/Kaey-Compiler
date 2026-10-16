@@ -117,6 +117,13 @@ namespace Kaey::Ast
         using ParentClass::ParentClass;
     };
 
+    struct PropertyDeclaration final : Statement::With<PropertyDeclaration, VariableDeclaration>
+    {
+        PropertyDeclaration(SystemModule* sys, Context* parentContext, string name, Ast::Type* type, Expression* initializingExpression = nullptr);
+        MethodDeclaration* Getter = nullptr;
+        MethodDeclaration* Setter = nullptr;
+    };
+
     struct ClassDeclaration final : Statement::With<ClassDeclaration>
     {
         ClassDeclaration(Context* parentContext, string name);

@@ -10,10 +10,13 @@ include_directories(SYSTEM ${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/inclu
 
 if (WIN32)
     add_compile_definitions(NOMINMAX)
-    add_compile_options(/external:anglebrackets /external:env:INCLUDE /external:I${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include /external:W0 /bigobj)
-    if (CMAKE_BUILD_TYPE MATCHES DEBUG)
-        add_compile_options(/JMC)
-    endif()
+    add_compile_options(/external:anglebrackets /external:env:INCLUDE /external:I${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include /external:W0 /Zc:__cplusplus)
+    add_compile_options(/bigobj)
+    add_compile_options(/JMC)
+    #add_compile_options(/Bt+)
+    #add_compile_options(/d1reportTime)
+    #if (CMAKE_BUILD_TYPE MATCHES DEBUG)
+    #endif()
 else()
     # GCC or Clang
 endif()

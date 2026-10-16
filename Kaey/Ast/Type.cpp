@@ -23,6 +23,11 @@ namespace Kaey::Ast
         return fields;
     }
 
+    ArrayView<PropertyDeclaration*> Type::Properties() const
+    {
+        return properties;
+    }
+
     ArrayView<MethodDeclaration*> Type::Methods() const
     {
         return methods;
@@ -73,6 +78,11 @@ namespace Kaey::Ast
         fields.Add(field);
     }
 
+    void Type::AddProperty(PropertyDeclaration* prop)
+    {
+        properties.Add(prop);
+    }
+
     void Type::AddMethod(MethodDeclaration* method)
     {
         methods.emplace_back(method);
@@ -94,6 +104,13 @@ namespace Kaey::Ast
         auto field = GetContext()->CreateChild<FieldDeclaration>(move(name), type, initializeExpression);
         AddField(field);
         return field;
+    }
+
+    PropertyDeclaration* Type::DeclareProperty(string name, Type* type, Expression* initializeExpression)
+    {
+        auto prop = GetContext()->CreateChild<PropertyDeclaration>(move(name), type, initializeExpression);
+        AddProperty(prop);
+        return prop;
     }
 
     MethodDeclaration* Type::DeclareMethod(string name, vector<pair<string, Type*>> params, Type* returnType)
@@ -136,6 +153,11 @@ namespace Kaey::Ast
     FieldDeclaration* Type::FindField(string_view name) const
     {
         return fields.Find(name);
+    }
+
+    PropertyDeclaration* Type::FindProperty(string_view name) const
+    {
+        return properties.Find(name);
     }
 
     Context* Type::GetContext() const

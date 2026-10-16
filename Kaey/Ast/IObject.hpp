@@ -74,7 +74,7 @@ namespace Kaey::Ast
         TupleType* GetTupleType(vector<Type*> types) const;
         VariantType* GetVariantType(vector<Type*> types) const;
         IntegerType* GetIntegerType(int bits, bool isSigned) const;
-        FloatType* GetFloatType() const;
+        FloatType* GetFloatType(int bits) const;
         CharacterType* GetCharacterType() const;
         BooleanType* GetBooleanType() const;
         VoidType* GetVoidType() const;
@@ -90,27 +90,24 @@ namespace Kaey::Ast
         void AddObject(unique_ptr<IObject> obj) const;
 
         template<class T, class... Args>
-        T* CreateObject(Args&&... args) const
+        T* CreateObject(Args&&... args) const try
         {
-            try
+            if constexpr (requires { new T{ System(), std::forward<Args>(args)... }; })
             {
-                if constexpr (requires { new T{ System(), std::forward<Args>(args)... }; })
-                {
-                    auto ptr = new T{ System(), std::forward<Args>(args)... };
-                    AddObject(unique_ptr<IObject>{ptr});
-                    return ptr;
-                }
-                else
-                {
-                    auto ptr = new T{ std::forward<Args>(args)... };
-                    AddObject(unique_ptr<IObject>{ptr});
-                    return ptr;
-                }
+                auto ptr = new T{ System(), std::forward<Args>(args)... };
+                AddObject(unique_ptr<IObject>{ptr});
+                return ptr;
             }
-            catch (std::exception&)
+            else
             {
-                return nullptr;
+                auto ptr = new T{ std::forward<Args>(args)... };
+                AddObject(unique_ptr<IObject>{ptr});
+                return ptr;
             }
+        }
+        catch (std::exception&)
+        {
+            return nullptr;
         }
 
         template<class Child, class... Args>

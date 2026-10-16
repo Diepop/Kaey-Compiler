@@ -37,7 +37,7 @@ namespace Kaey::Llvm
         virtual void Destruct(FunctionOverload* caller, Expression* inst);
         
         virtual ArgumentReference* CaptureArgument(FunctionOverload* function, const ArgumentDeclaration& declaration, llvm::Argument* arg);
-        virtual Expression* PassArgument(FunctionOverload* fn, Expression* expr);
+        virtual Expression* PassArgument(FunctionOverload* fn, Expression* expr, bool variadicArg = false);
         virtual llvm::Type* TypeOfParameter() const;
         virtual llvm::Type* TypeOfReturn() const;
         virtual bool IsStructReturn() const;
@@ -85,7 +85,7 @@ namespace Kaey::Llvm
     {
         using Type::Type;
         ArgumentReference* CaptureArgument(FunctionOverload* fn, const ArgumentDeclaration& declaration, llvm::Argument* arg) override;
-        Expression* PassArgument(FunctionOverload* fn, Expression* expr) override;
+        Expression* PassArgument(FunctionOverload* fn, Expression* expr, bool variadicArg) override;
         llvm::Type* TypeOfParameter() const override;
         llvm::Type* TypeOfReturn() const override;
         bool IsStructReturn() const override;

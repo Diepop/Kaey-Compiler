@@ -32,7 +32,7 @@ namespace Kaey::Llvm
         CharacterType* GetCharacterType();
         IntegerType* GetIntegerType(int bits, bool isSigned);
         FloatType* GetFloatType();
-        FloatType* GetDoublingType();
+        FloatType* GetDoubleType();
         PointerType* GetPointerType(Type* underlyingType);
         ReferenceType* GetReferenceType(Type* underlyingType);
         ArrayType* GetArrayType(Type* underlyingType, int64_t length);

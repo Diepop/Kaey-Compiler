@@ -4,22 +4,26 @@
 //#[ExternC] [] srand(seed: u32) : void;
 //#[ExternC] [] rand() : i32;
 
-/*#[ExternC] [] sqrtf(v: f32) : f32;
+#[ExternC] [] sqrtf(v: f32) : f32;
 #[ExternC] [] puts(str: char*) : i32;
 #[ExternC] [] printf(fmt: char*, ...) : i32;
 #[ExternC] [] scanf(fmt: char*, ...) : i32;
 #[ExternC] [] Sleep(dwMilliseconds: u32) : void;
 #[ExternC] [] system(_Command: char*) : i32;
+#[ExternC] [] putchar(c: i32) : i32;
 
 class Vector2(var x: f32, var y: f32)
 {
     this() : this(0.0, 0.0);
-    var X: f32
+    //var X: f32
+    //{
+    //    get => this.x;
+    //    set => this.x = value;
+    //}
+    val Magnitude: f32 //=> sqrtf(this.x * this.x + this.y * this.y);
     {
-        get => this.x;
-        set => this.x = value;
+        get => sqrtf(this.x * this.x + this.y * this.y);
     }
-    val Magnitude: f32 => sqrtf(x * x + y * y);
 }
 
 val Right: Vector2 = Vector2(1, 0);
@@ -31,11 +35,7 @@ val Right: Vector2 = Vector2(1, 0);
     return v;
 }
 
-[] next2Int() : (i32, i32) => (nextInt(), nextInt());*/
-
-
-#[ExternC] [] printf(fmt: char*, ...) : i32;
-#[ExternC] [] puts(str: char*) : i32;
+[] next2Int() : (i32, i32) => (nextInt(), nextInt());
 
 [] TestPrint(count: i32 = 16)
 {
@@ -45,6 +45,14 @@ val Right: Vector2 = Vector2(1, 0);
 
 [] Main(argc: i32, argv: char**) : i32
 {
+    {
+        var v = Vector2(1.0, 2.0);
+        puts(+"Insira um valor:");
+        scanf(+"%f", &v.x);
+        puts(+"Insira um valor:");
+        scanf(+"%f", &v.y);
+        printf(+"(%f, %f) -> %f\n", v.x, v.y, v.Magnitude);
+    }
     TestPrint();
     val ptr = new (i32, i64, f32);
     for (var i = 0; i < argc; ++i)

@@ -1,7 +1,9 @@
 set(AstDir ${CMAKE_CURRENT_SOURCE_DIR}/)
 
 set(AstSources
+    "ConstexprVisitor.hpp" "ConstexprVisitor.cpp"
     "CreateAst.hpp" "CreateAst.cpp"
+
     "Module.hpp" "Module.cpp"
 
     "Expression.hpp" "Expression.cpp"
@@ -12,6 +14,7 @@ set(AstSources
 
     "Type.hpp" "Type.cpp"
     "Types.hpp" "Types.cpp"
+
 )
 
 list(TRANSFORM AstSources PREPEND ${AstDir})
